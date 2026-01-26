@@ -2,6 +2,34 @@
 
 A unified conference management platform for Colorado State University's College of Veterinary Medicine and Biomedical Sciences Research Day.
 
+**Target Event:** Research Day 2027 (V1 was used for 2026, which concluded successfully)
+
+---
+
+## Progress & Next Steps
+
+### Completed (January 25, 2026)
+- [x] Project initialized with Next.js 14 + TypeScript + Tailwind
+- [x] shadcn/ui components installed (14 components)
+- [x] Supabase project created (CVMBS-Research-Day)
+- [x] Database schema deployed (9 tables with RLS policies)
+- [x] Supabase connection tested and working
+- [x] Pushed to GitHub
+
+### Next Session: Authentication
+- [ ] Build magic link login page
+- [ ] Create auth callback handler
+- [ ] Add profile completion flow (first-time users)
+- [ ] Test login/logout flow
+
+### Future Phases
+- [ ] Create 2027 event in database
+- [ ] Build submission system
+- [ ] Build judge registration
+- [ ] Port scoring logic from V1
+
+---
+
 ## Project Overview
 
 This is V2 of the Research Day system, combining:

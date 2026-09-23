@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Old Vite abstracts site — kept locally for reference during port; not part of the app.
+/ResearchDayAbstractsSite/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

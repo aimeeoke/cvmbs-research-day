@@ -1,131 +1,146 @@
-import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import Link from 'next/link'
+import { Calendar, FileText, Info, LogIn } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 
 export default async function Home() {
-  // Test the Supabase connection
-  let connectionStatus: "success" | "error" = "error";
-  let errorMessage = "";
-  let eventCount = 0;
+  const user = await getCurrentUser()
+  const supabase = await createClient()
 
-  try {
-    const supabase = await createClient();
+  const { data: event } = await supabase
+    .from('events')
+    .select('year, name, event_date, submission_closes_at, finalize_deadline_at')
+    .eq('is_active', true)
+    .maybeSingle()
 
-    // Try to query the events table
-    const { data, error } = await supabase
-      .from("events")
-      .select("*");
-
-    if (error) {
-      errorMessage = error.message;
-    } else {
-      connectionStatus = "success";
-      eventCount = data?.length || 0;
-    }
-  } catch (err) {
-    errorMessage = err instanceof Error ? err.message : "Unknown error";
+  type MySubmission = { id: string; status: string; title: string }
+  let mySubmission: MySubmission | null = null
+  if (user) {
+    const { data } = await supabase
+      .from('submissions')
+      .select('id, status, title')
+      .eq('submitter_id', user.id)
+      .maybeSingle()
+    if (data) mySubmission = data as unknown as MySubmission
   }
 
+  const dateLabel = event?.event_date
+    ? new Date(event.event_date + 'T00:00:00').toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white p-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-green-800">
-            CVMBS Research Day
-          </h1>
-          <p className="text-gray-600">
-            Conference Management Platform
-          </p>
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+        <h1 className="text-3xl sm:text-4xl font-bold text-[#1E4D2B]">
+          {event?.name ?? 'CVMBS Research Day'}
+        </h1>
+        {dateLabel && <p className="text-gray-700 mt-1">{dateLabel}</p>}
+        <p className="text-gray-600 mt-3 max-w-2xl">
+          The annual showcase of research from the College of Veterinary Medicine and
+          Biomedical Sciences. Submit your abstract, explore the schedule, and get ready
+          for the big day.
+        </p>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          {user ? (
+            <Link
+              href="/submit"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#1E4D2B] text-white text-sm font-semibold hover:bg-[#163d22]"
+            >
+              <FileText size={16} />
+              {mySubmission ? 'Continue submission' : 'Start submission'}
+            </Link>
+          ) : (
+            <Link
+              href="/login?redirect=/submit"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#1E4D2B] text-white text-sm font-semibold hover:bg-[#163d22]"
+            >
+              <LogIn size={16} />
+              Sign in to submit
+            </Link>
+          )}
+          <Link
+            href="/schedule"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-50"
+          >
+            <Calendar size={16} />
+            View schedule
+          </Link>
+          <Link
+            href="/about"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-50"
+          >
+            <Info size={16} />
+            About
+          </Link>
         </div>
+      </section>
 
-        {/* Connection Status Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              Supabase Connection
-              {connectionStatus === "success" ? (
-                <Badge className="bg-green-600">Connected</Badge>
-              ) : (
-                <Badge variant="destructive">Error</Badge>
-              )}
-            </CardTitle>
-            <CardDescription>
-              Testing database connectivity
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {connectionStatus === "success" ? (
-              <div className="space-y-2 text-sm">
-                <p className="text-green-700">
-                  Successfully connected to Supabase!
-                </p>
-                <p className="text-gray-600">
-                  Events in database: <strong>{eventCount}</strong>
-                </p>
-                <p className="text-gray-500 text-xs mt-4">
-                  Your database is ready. No events exist yet - we&apos;ll create one when you set up the 2026 event.
-                </p>
+      {user && mySubmission && (
+        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-gray-500">
+                Your submission
               </div>
-            ) : (
-              <div className="space-y-2 text-sm">
-                <p className="text-red-700">
-                  Could not connect to Supabase
-                </p>
-                <p className="text-gray-600 font-mono text-xs bg-gray-100 p-2 rounded">
-                  {errorMessage}
-                </p>
+              <div className="text-lg font-semibold text-gray-900 mt-0.5">
+                {mySubmission.title || 'Untitled draft'}
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Next Steps Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>V2 Platform Status</CardTitle>
-            <CardDescription>
-              What&apos;s ready and what&apos;s coming
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span>Next.js 14 + TypeScript + Tailwind</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span>Supabase database connection</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span>Database schema (8 tables + RLS)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span>shadcn/ui components</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-yellow-600">○</span>
-                <span className="text-gray-500">Authentication (magic links)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-yellow-600">○</span>
-                <span className="text-gray-500">Submission system</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-yellow-600">○</span>
-                <span className="text-gray-500">Judge registration</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-yellow-600">○</span>
-                <span className="text-gray-500">Scoring system</span>
+              <div className="text-sm text-gray-600 capitalize mt-0.5">
+                Status: {mySubmission.status}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            <Link
+              href="/submit"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#1E4D2B] text-[#1E4D2B] text-sm font-semibold hover:bg-[#1E4D2B]/5"
+            >
+              Open
+            </Link>
+          </div>
+        </section>
+      )}
+
+      <section className="grid sm:grid-cols-2 gap-4">
+        <Deadline
+          label="New submissions close"
+          when={event?.submission_closes_at ?? null}
+          fallback="Date TBD"
+        />
+        <Deadline
+          label="Final edits due"
+          when={event?.finalize_deadline_at ?? null}
+          fallback="Date TBD"
+        />
+      </section>
     </div>
-  );
+  )
+}
+
+function Deadline({
+  label,
+  when,
+  fallback,
+}: {
+  label: string
+  when: string | null
+  fallback: string
+}) {
+  const text = when
+    ? new Date(when).toLocaleDateString(undefined, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : fallback
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="text-lg font-semibold text-gray-900 mt-1">{text}</div>
+    </div>
+  )
 }

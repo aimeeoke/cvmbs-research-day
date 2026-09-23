@@ -39,6 +39,9 @@ yarn-error.log*
 # Old Vite abstracts site — kept locally for reference during port; not part of the app.
 /ResearchDayAbstractsSite/
 
+# Personal Claude Code overrides (not shared)
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

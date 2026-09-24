@@ -13,15 +13,12 @@ export default async function Home() {
     .eq('is_active', true)
     .maybeSingle()
 
-  type MySubmission = { id: string; status: string; title: string }
-  let mySubmission: MySubmission | null = null
+  let myAbstractCount = 0
   if (user) {
-    const { data } = await supabase
+    const { count } = await supabase
       .from('submissions')
-      .select('id, status, title')
-      .eq('submitter_id', user.id)
-      .maybeSingle()
-    if (data) mySubmission = data as unknown as MySubmission
+      .select('id', { count: 'exact', head: true })
+    myAbstractCount = count ?? 0
   }
 
   const dateLabel = event?.event_date
@@ -49,15 +46,15 @@ export default async function Home() {
         <div className="mt-6 flex flex-wrap gap-3">
           {user ? (
             <Link
-              href="/submit"
+              href="/abstracts"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#1E4D2B] text-white text-sm font-semibold hover:bg-[#163d22]"
             >
               <FileText size={16} />
-              {mySubmission ? 'Continue submission' : 'Start submission'}
+              {myAbstractCount > 0 ? 'Open abstract portal' : 'Start a submission'}
             </Link>
           ) : (
             <Link
-              href="/login?redirect=/submit"
+              href="/login?redirect=/abstracts"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#1E4D2B] text-white text-sm font-semibold hover:bg-[#163d22]"
             >
               <LogIn size={16} />
@@ -81,25 +78,25 @@ export default async function Home() {
         </div>
       </section>
 
-      {user && mySubmission && (
+      {user && myAbstractCount > 0 && (
         <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <div className="text-xs uppercase tracking-wide text-gray-500">
-                Your submission
+                Your abstracts
               </div>
               <div className="text-lg font-semibold text-gray-900 mt-0.5">
-                {mySubmission.title || 'Untitled draft'}
+                {myAbstractCount} {myAbstractCount === 1 ? 'submission' : 'submissions'}
               </div>
-              <div className="text-sm text-gray-600 capitalize mt-0.5">
-                Status: {mySubmission.status}
+              <div className="text-sm text-gray-600 mt-0.5">
+                View, edit, or start a new one from the Abstract Portal.
               </div>
             </div>
             <Link
-              href="/submit"
+              href="/abstracts"
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#1E4D2B] text-[#1E4D2B] text-sm font-semibold hover:bg-[#1E4D2B]/5"
             >
-              Open
+              Open portal
             </Link>
           </div>
         </section>

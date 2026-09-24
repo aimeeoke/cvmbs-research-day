@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, Suspense, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Mail, Lock, Loader2, CheckCircle, KeyRound } from 'lucide-react'
+import { normalizeEmail } from '@/lib/email'
 
 const ERROR_MESSAGES: Record<string, string> = {
   auth_failed: 'Authentication failed. Please try again.',
@@ -61,8 +63,10 @@ function LoginContent() {
 
     const supabase = createClient()
 
+    const cleanEmail = normalizeEmail(email)
+
     if (password) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password })
       setIsLoading(false)
       if (error) {
         setError(
@@ -75,7 +79,7 @@ function LoginContent() {
         router.refresh()
       }
     } else {
-      const { error } = await supabase.auth.signInWithOtp({ email })
+      const { error } = await supabase.auth.signInWithOtp({ email: cleanEmail })
       setIsLoading(false)
       if (error) setError(error.message)
       else setCodeSent(true)
@@ -89,7 +93,7 @@ function LoginContent() {
 
     const supabase = createClient()
     const { error } = await supabase.auth.verifyOtp({
-      email,
+      email: normalizeEmail(email),
       token: otpCode,
       type: 'email',
     })
@@ -115,7 +119,7 @@ function LoginContent() {
     setOtpCode('')
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOtp({ email })
+    const { error } = await supabase.auth.signInWithOtp({ email: normalizeEmail(email) })
 
     setIsLoading(false)
     if (error) setError(error.message)
@@ -228,13 +232,11 @@ function LoginContent() {
               </div>
 
               <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
-                <p className="text-sm font-medium text-amber-900">
-                  Use your full <span className="font-mono">first.last@colostate.edu</span> address
-                </p>
-                <p className="mt-1 text-xs text-amber-800">
-                  Signing in with an eID or alias may prevent Green Labs points from
-                  being credited to your record. Contact the Research Day admin if that
-                  happens.
+                <p className="text-xs text-amber-800">
+                  <strong className="text-amber-900">CVMBS Faculty:</strong> sign in with
+                  your <span className="font-mono">first.last@colostate.edu</span> alias so
+                  Green Labs points credit to your record. Everyone else, use whichever
+                  email you registered with.
                 </p>
               </div>
 
@@ -309,7 +311,13 @@ function LoginContent() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-xs text-gray-500">
+        <p className="mt-4 text-center text-sm text-gray-600">
+          New here?{' '}
+          <Link href="/signup" className="font-semibold text-[#1E4D2B] hover:text-[#163d22]">
+            Create an account
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-gray-500">
           Most people sign in with an emailed code. Support staff can enter a password to
           sign in immediately.
         </p>

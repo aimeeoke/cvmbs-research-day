@@ -14,6 +14,7 @@ export type AuthorInput = {
   profile_id: string | null
   faculty_id: string | null
   display_name: string | null
+  email: string | null
   is_presenter: boolean
   is_mentor: boolean
 }
@@ -39,7 +40,7 @@ async function requireUser() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login?redirect=/submit')
+  if (!user) redirect('/login?redirect=/abstracts')
   return { supabase, user }
 }
 
@@ -55,21 +56,12 @@ async function getActiveEvent(supabase: Awaited<ReturnType<typeof createClient>>
 }
 
 /**
- * Ensures there is a draft submission for the current user + active event.
- * Returns the submission id.
+ * Creates a fresh draft submission owned by the current user and returns its id.
+ * Used from the Abstract Portal "New submission" button.
  */
-export async function ensureDraftSubmission(): Promise<string> {
+export async function createDraftSubmission(): Promise<string> {
   const { supabase, user } = await requireUser()
   const event = await getActiveEvent(supabase)
-
-  const { data: existing } = await supabase
-    .from('submissions')
-    .select('id')
-    .eq('event_id', event.id)
-    .eq('submitter_id', user.id)
-    .maybeSingle()
-
-  if (existing) return existing.id
 
   const { data: created, error } = await supabase
     .from('submissions')
@@ -90,20 +82,62 @@ async function persistSubmission(
   input: SubmissionInput,
   nextStatus: SubmissionStatus | null
 ) {
-  const { supabase, user } = await requireUser()
+  const { supabase } = await requireUser()
 
-  // Load the submission to enforce ownership and status invariants
+  // Load the submission for status invariants. Access is enforced by RLS —
+  // if the user is not the submitter, presenter, mentor, or admin, this
+  // returns null.
   const { data: current, error: loadErr } = await supabase
     .from('submissions')
-    .select('id, submitter_id, status')
+    .select('id, status, event_id')
     .eq('id', submissionId)
     .maybeSingle()
 
   if (loadErr) throw new Error(loadErr.message)
-  if (!current) throw new Error('Submission not found')
-  if (current.submitter_id !== user.id) throw new Error('Not your submission')
+  if (!current) throw new Error('Submission not found or you do not have access.')
   if (current.status === 'finalized' || current.status === 'withdrawn') {
     throw new Error('This submission is locked and can no longer be edited.')
+  }
+
+  // Enforce "one presentation per presenter" at submit/finalize time.
+  if (nextStatus === 'submitted' || nextStatus === 'finalized') {
+    const presenter = input.authors.find((a) => a.is_presenter)
+    if (!presenter) {
+      throw new Error('Mark one author as the Presenter before submitting.')
+    }
+    const presenterEmail = presenter.email?.trim().toLowerCase()
+    if (!presenterEmail) {
+      throw new Error(
+        'The Presenter must have an email address before you can submit.'
+      )
+    }
+
+    const { data: conflicts, error: dupErr } = await supabase
+      .from('submission_authors')
+      .select('submission_id, submissions!inner(id, status, event_id)')
+      .eq('is_presenter', true)
+      .ilike('email', presenterEmail)
+
+    if (dupErr) throw new Error(dupErr.message)
+
+    const otherActive = (conflicts ?? []).filter((row) => {
+      const s = (row as unknown as { submissions: { id: string; status: string; event_id: string } })
+        .submissions
+      return (
+        s &&
+        s.event_id === current.event_id &&
+        s.id !== submissionId &&
+        (s.status === 'submitted' || s.status === 'finalized')
+      )
+    })
+
+    if (otherActive.length > 0) {
+      throw new Error(
+        'This presenter already has a submitted abstract for this event. ' +
+          'Presenters can only present a single time — only the first submitted abstract will be accepted. ' +
+          'If this is a mistake, contact the Research Day admin.'
+      )
+    }
   }
 
   const now = new Date().toISOString()
@@ -154,6 +188,7 @@ async function persistSubmission(
       profile_id: a.profile_id,
       faculty_id: a.faculty_id,
       display_name: a.display_name?.trim() || null,
+      email: a.email?.trim().toLowerCase() || null,
       is_presenter: !!a.is_presenter,
       is_mentor: !!a.is_mentor,
     }))
@@ -168,18 +203,21 @@ async function persistSubmission(
 
 export async function saveDraft(submissionId: string, input: SubmissionInput) {
   await persistSubmission(submissionId, input, null)
-  revalidatePath('/submit')
+  revalidatePath('/abstracts')
+  revalidatePath(`/submit`)
   return { ok: true as const }
 }
 
 export async function submitDraft(submissionId: string, input: SubmissionInput) {
   await persistSubmission(submissionId, input, 'submitted')
-  revalidatePath('/submit')
+  revalidatePath('/abstracts')
+  revalidatePath(`/submit`)
   return { ok: true as const }
 }
 
 export async function finalizeSubmission(submissionId: string, input: SubmissionInput) {
   await persistSubmission(submissionId, input, 'finalized')
-  revalidatePath('/submit')
+  revalidatePath('/abstracts')
+  revalidatePath(`/submit`)
   return { ok: true as const }
 }

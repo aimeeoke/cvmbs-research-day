@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { ensureDraftSubmission, type AuthorInput, type SubmissionInput } from './actions'
+import type { AuthorInput, SubmissionInput } from './actions'
 import { SubmitForm } from './submit-form'
 import type { FacultyOption } from './author-list'
 import type {
@@ -14,11 +14,18 @@ export const metadata = {
   title: 'Submit · CVMBS Research Day',
 }
 
-export default async function SubmitPage() {
-  const user = await getCurrentUser()
-  if (!user) redirect('/login?redirect=/submit')
+type SearchParams = Promise<{ id?: string }>
 
-  await ensureDraftSubmission()
+export default async function SubmitPage({
+  searchParams,
+}: {
+  searchParams: SearchParams
+}) {
+  const user = await getCurrentUser()
+  if (!user) redirect('/login?redirect=/abstracts')
+
+  const { id } = await searchParams
+  if (!id) redirect('/abstracts')
 
   const supabase = await createClient()
 
@@ -26,7 +33,7 @@ export default async function SubmitPage() {
     { data: event },
     { data: departments },
     { data: facultyRows },
-    { data: submission },
+    { data: submission, error: subErr },
   ] = await Promise.all([
     supabase.from('events').select('*').eq('is_active', true).maybeSingle(),
     supabase.from('departments').select('id, name').order('sort_order'),
@@ -40,7 +47,7 @@ export default async function SubmitPage() {
     supabase
       .from('submissions')
       .select('*, submission_authors(*)')
-      .eq('submitter_id', user.id)
+      .eq('id', id)
       .maybeSingle(),
   ])
 
@@ -48,9 +55,7 @@ export default async function SubmitPage() {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-          <p className="text-amber-900 font-medium">
-            Submissions are not open yet.
-          </p>
+          <p className="text-amber-900 font-medium">Submissions are not open yet.</p>
           <p className="text-sm text-amber-800 mt-1">
             The 2027 event is still being set up. Please check back soon.
           </p>
@@ -59,13 +64,20 @@ export default async function SubmitPage() {
     )
   }
 
-  if (!submission) {
-    // Should not happen — ensureDraftSubmission created one — but bail safely.
-    redirect('/submit')
+  if (subErr || !submission) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-900 font-medium">Submission not found.</p>
+          <p className="text-sm text-red-800 mt-1">
+            You may not have access to this abstract, or it may have been deleted.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   const facultyOptions: FacultyOption[] = (facultyRows ?? []).map((f) => {
-    // Supabase's typed embed returns departments as an object (or null)
     const dept = (f as unknown as { departments: { name: string } | null }).departments
     return {
       id: f.id,
@@ -93,6 +105,7 @@ export default async function SubmitPage() {
       profile_id: string | null
       faculty_id: string | null
       display_name: string | null
+      email: string | null
       is_presenter: boolean
       is_mentor: boolean
     })
@@ -102,6 +115,7 @@ export default async function SubmitPage() {
       profile_id: a.profile_id,
       faculty_id: a.faculty_id,
       display_name: a.display_name,
+      email: a.email,
       is_presenter: a.is_presenter,
       is_mentor: a.is_mentor,
     }))
@@ -134,6 +148,7 @@ export default async function SubmitPage() {
       facultyOptions={facultyOptions}
       editingLocked={editingLocked}
       finalizeDeadline={event.finalize_deadline_at}
+      isSubmitter={submission.submitter_id === user.id}
     />
   )
 }

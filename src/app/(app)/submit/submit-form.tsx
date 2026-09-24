@@ -29,6 +29,7 @@ type Props = {
   facultyOptions: FacultyOption[]
   editingLocked: boolean
   finalizeDeadline: string | null
+  isSubmitter: boolean
 }
 
 const CLASSIFICATION_OPTIONS = [
@@ -149,6 +150,20 @@ export function SubmitForm(props: Props) {
         finalizeDeadline={props.finalizeDeadline}
         editingLocked={props.editingLocked}
       />
+
+      {!props.isSubmitter && !disabled && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+          You're editing this abstract as a mentor or presenter — the changes save
+          against the submission owned by whoever originally created it.
+        </div>
+      )}
+
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <strong>Presenters can only present once.</strong> Because of space and time
+        constraints, each presenter is limited to a single abstract. If more than one
+        abstract is created for the same presenter, only the first one submitted will
+        be accepted.
+      </div>
 
       {banner && (
         <div

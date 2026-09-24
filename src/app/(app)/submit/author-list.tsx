@@ -23,6 +23,7 @@ const emptyAuthor = (): AuthorInput => ({
   profile_id: null,
   faculty_id: null,
   display_name: '',
+  email: null,
   is_presenter: false,
   is_mentor: false,
 })
@@ -215,6 +216,26 @@ function AuthorRow({
               Mentor
             </label>
           </div>
+
+          {author.is_presenter && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Presenter email <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="email"
+                value={author.email ?? ''}
+                disabled={disabled}
+                onChange={(e) => onChange({ email: e.target.value })}
+                placeholder="how the presenter is contacted for assignments"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Used to enforce the one-abstract-per-presenter rule and to notify
+                the presenter of assignments.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">

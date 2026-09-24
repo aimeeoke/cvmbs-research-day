@@ -28,18 +28,72 @@ A unified conference management platform for Colorado State University's College
 - [x] Set event dates (Nov 16, 2026 close · Jan 4, 2027 finalize; both 11:59pm MST).
 - [x] Configured Resend SMTP + email-code template (login working end-to-end).
 
-### Tomorrow's session (Sep 24)
-- [ ] Author enhancements:
-  - [ ] Capture Green Labs Ambassador status *per author* on the submission form
-        (not just faculty — includes students).
-  - [ ] Admin name-canonicalization: fix student misspellings / nicknames on the
-        backend so points attribute correctly.
-- [ ] Convert `affiliations` from free text to a multi-select dropdown backed by
-      an admin-managed list.
+### Completed (Sep 24, 2026 — sidebar + multi-audience site)
+- [x] **Sidebar refactor.** Top nav replaced with a CRC-style persistent sidebar.
+      All pages moved into `src/app/(app)/` route group; `/login` and `/signup`
+      stay full-screen. Nav config lives in `src/lib/nav.ts`
+      (public + auth + admin + utility sections). Dead `site-header.tsx` deleted.
+- [x] **Signup flow.** New `/signup` page: captures first + last name, radio for
+      "Presenter/trainee/non-faculty judge" (any email) vs "CVMBS Faculty"
+      (must be `first.last@colostate.edu` — validated with `src/lib/email.ts`).
+      OTP metadata written to `profiles.first_name` / `last_name` / `full_name`
+      via `handle_new_user` trigger. Login page normalizes emails to lowercase
+      and links to `/signup`. Migration `2026-09-24_first_last_name.sql` applied.
+- [x] **Schema tweaks (migration `2026-09-24_schema_tweaks.sql` applied).**
+      Dropped `UNIQUE (event_id, submitter_id)` on submissions so proxies can
+      hold multiple drafts. Added `submission_authors.email` (identity for the
+      one-per-presenter rule + auto-linking after signup). New RLS helper
+      `current_user_can_access_submission()` gives read/write to submitter,
+      presenter (profile_id or email match), mentor (profile_id or via
+      `faculty.profile_id`), and admin. Added `judge_registrations` and
+      `role_requests` tables with RLS.
+- [x] **Abstract Portal.** `/abstracts` is now the list view: presenter first
+      + last, title, status, "my role" (Submitter / Mentor / Presenter),
+      Edit/View link. "New submission" button calls a server action that
+      creates a draft and redirects to `/submit?id=…`. Prominent
+      one-presenter-per-abstract instructions.
+- [x] **Submit form.** `/submit` now takes `?id=…` (no id → redirect to portal).
+      Ownership check replaced with RLS. Presenter row exposes a required
+      email field. Server enforces "presenter already submitted for this event"
+      at `submitDraft`/`finalize` time with a clear error message. Mentor
+      editors get a blue "you're editing as mentor/presenter" banner.
+- [x] **Judge sign-up.** `/judge` form with eligibility radio (faculty /
+      advanced trainee / early trainee / undergrad). Format checkboxes are
+      gated by eligibility: faculty=all, advanced=posters, early=undergrad
+      poster only, undergrad=blocked. Time slots + conflicts + view / edit /
+      cancel / reactivate flow. Time slot labels are placeholders — replace
+      once `src/lib/schedule.ts` has the 2027 schedule.
+
+### Tomorrow's session (Sep 25) — resume here
+- [ ] **Test everything from Sep 24 in the browser.** Migration is applied
+      but nothing UI-tested yet. See test plan in the chat transcript (signup,
+      abstract portal proxy access, presenter-uniqueness enforcement, judge
+      eligibility gating). Existing profile rows may need
+      `UPDATE profiles SET email = LOWER(email);` if any test users have
+      mixed-case emails — the RLS helper does a lowercase compare.
+- [ ] **Task 6 — Settings.** Password set/change + role-request form that
+      writes to the new `role_requests` table (DB-backed queue, not email).
+- [ ] **Task 7 — Public content.** Populate `/about` (awards info coming
+      via email from user), `/winners-2026` (from vetmedbiosci page), and
+      `/committee` (already stubbed with 9 names — may just need styling).
+- [ ] **Task 8 — Faculty CSV loader.** `CVMBS-Faculty.csv` is at the repo
+      root. Need a one-off script that normalizes: title-case first names
+      that arrived lowercase, lowercase all emails, then upserts into the
+      `faculty` table with `department_id` matched from the CSV.
+- [ ] **Task 9 — 2027 schedule.** Same as 2026 with keynote replaced by
+      **Dr. Adam Harris**. Update `src/lib/schedule.ts` and then swap the
+      placeholder time-slot labels in `src/app/(app)/judge/page.tsx`.
+- [ ] Author enhancements (deferred from earlier list):
+  - [ ] Capture Green Labs Ambassador status *per author* on the submission form.
+  - [ ] Admin name-canonicalization for student misspellings.
+- [ ] Convert `affiliations` from free text to multi-select from an
+      admin-managed list.
 - [ ] "Abstract Instructions" doc / on-page guidance for submitters.
-- [ ] Real 2027 schedule → `src/lib/schedule.ts`.
-- [ ] Load faculty CSV (and possibly postdocs) → `faculty` table with departments.
-- [ ] Real 2027 About-page copy → `src/app/about/page.tsx`.
+
+### Migrations applied (in order)
+1. `supabase/schema.sql` — Sep 23, 2026 (initial V2 schema)
+2. `supabase/migrations/2026-09-24_first_last_name.sql` — first_name/last_name + trigger update
+3. `supabase/migrations/2026-09-24_schema_tweaks.sql` — multi-draft, author email, RLS helper, judge_registrations, role_requests
 
 ### Deploy (when ready)
 - [ ] Bootstrap the admin role once signed in: `INSERT INTO user_roles (user_id,

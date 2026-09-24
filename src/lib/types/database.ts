@@ -30,6 +30,16 @@ export type PreferredPresentationType =
 
 export type SessionPreference = 'Early' | 'Late' | 'No preference'
 
+export type JudgeEligibility =
+  | 'faculty'
+  | 'advanced_trainee'
+  | 'early_trainee'
+  | 'undergrad'
+
+export type JudgeFormat = 'oral' | 'poster_regular' | 'poster_undergrad'
+
+export type RoleRequestStatus = 'pending' | 'granted' | 'denied' | 'resolved'
+
 export type Database = {
   // Required by @supabase/supabase-js v2 for schema-aware typing.
   __InternalSupabase: {
@@ -61,6 +71,8 @@ export type Database = {
         Row: {
           id: string
           email: string
+          first_name: string | null
+          last_name: string | null
           full_name: string | null
           department_id: string | null
           classification: string | null
@@ -72,6 +84,8 @@ export type Database = {
         Insert: {
           id: string
           email: string
+          first_name?: string | null
+          last_name?: string | null
           full_name?: string | null
           department_id?: string | null
           classification?: string | null
@@ -83,6 +97,8 @@ export type Database = {
         Update: {
           id?: string
           email?: string
+          first_name?: string | null
+          last_name?: string | null
           full_name?: string | null
           department_id?: string | null
           classification?: string | null
@@ -270,6 +286,7 @@ export type Database = {
           profile_id: string | null
           faculty_id: string | null
           display_name: string | null
+          email: string | null
           is_presenter: boolean
           is_mentor: boolean
           created_at: string
@@ -281,6 +298,7 @@ export type Database = {
           profile_id?: string | null
           faculty_id?: string | null
           display_name?: string | null
+          email?: string | null
           is_presenter?: boolean
           is_mentor?: boolean
           created_at?: string
@@ -292,9 +310,95 @@ export type Database = {
           profile_id?: string | null
           faculty_id?: string | null
           display_name?: string | null
+          email?: string | null
           is_presenter?: boolean
           is_mentor?: boolean
           created_at?: string
+        }
+      }
+      judge_registrations: {
+        Row: {
+          id: string
+          event_id: string
+          user_id: string
+          first_name: string
+          last_name: string
+          email: string
+          eligibility: JudgeEligibility
+          detailed_role: string | null
+          preferred_time_slots: string[]
+          preferred_formats: JudgeFormat[]
+          conflicts: string | null
+          cancelled_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          user_id: string
+          first_name: string
+          last_name: string
+          email: string
+          eligibility: JudgeEligibility
+          detailed_role?: string | null
+          preferred_time_slots?: string[]
+          preferred_formats?: JudgeFormat[]
+          conflicts?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          user_id?: string
+          first_name?: string
+          last_name?: string
+          email?: string
+          eligibility?: JudgeEligibility
+          detailed_role?: string | null
+          preferred_time_slots?: string[]
+          preferred_formats?: JudgeFormat[]
+          conflicts?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      role_requests: {
+        Row: {
+          id: string
+          user_id: string
+          requested_role: UserRole
+          note: string | null
+          status: RoleRequestStatus
+          resolved_at: string | null
+          resolved_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          requested_role: UserRole
+          note?: string | null
+          status?: RoleRequestStatus
+          resolved_at?: string | null
+          resolved_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          requested_role?: UserRole
+          note?: string | null
+          status?: RoleRequestStatus
+          resolved_at?: string | null
+          resolved_by?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
     }
@@ -305,10 +409,12 @@ export type Database = {
 }
 
 // Convenience row types
-export type Department       = Database['public']['Tables']['departments']['Row']
-export type Profile          = Database['public']['Tables']['profiles']['Row']
-export type Faculty          = Database['public']['Tables']['faculty']['Row']
-export type UserRoleRow      = Database['public']['Tables']['user_roles']['Row']
-export type Event            = Database['public']['Tables']['events']['Row']
-export type Submission       = Database['public']['Tables']['submissions']['Row']
-export type SubmissionAuthor = Database['public']['Tables']['submission_authors']['Row']
+export type Department          = Database['public']['Tables']['departments']['Row']
+export type Profile             = Database['public']['Tables']['profiles']['Row']
+export type Faculty             = Database['public']['Tables']['faculty']['Row']
+export type UserRoleRow         = Database['public']['Tables']['user_roles']['Row']
+export type Event               = Database['public']['Tables']['events']['Row']
+export type Submission          = Database['public']['Tables']['submissions']['Row']
+export type SubmissionAuthor    = Database['public']['Tables']['submission_authors']['Row']
+export type JudgeRegistration   = Database['public']['Tables']['judge_registrations']['Row']
+export type RoleRequest         = Database['public']['Tables']['role_requests']['Row']

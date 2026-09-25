@@ -61,6 +61,10 @@ const RESEARCH_TYPES = [
 
 const RESEARCH_STAGES = ['Early', 'Advanced'] as const
 
+const RESEARCH_STAGE_HINT =
+  'Early = undergrad, post-bacc, or graduate student / resident with ≤ 2 years in the research program. ' +
+  'Advanced = completed prelims and/or more than 2 years of research experience.'
+
 const PRESENTATION_PREFS: PreferredPresentationType[] = [
   'Oral only',
   'Prefer oral',
@@ -68,7 +72,12 @@ const PRESENTATION_PREFS: PreferredPresentationType[] = [
   'No preference',
 ]
 
-const SESSION_PREFS: SessionPreference[] = ['Early', 'Late', 'No preference']
+const SESSION_PREFS: { value: SessionPreference; label: string }[] = [
+  { value: 'Undergraduate poster', label: 'Undergraduate poster (10:15–11:15 am)' },
+  { value: 'Early', label: 'Early (11:30 am – 1:30 pm)' },
+  { value: 'Late', label: 'Late (1:45 – 3:45 pm)' },
+  { value: 'No preference', label: 'No preference' },
+]
 
 export function SubmitForm(props: Props) {
   const [state, setState] = useState<SubmissionInput>(props.initial)
@@ -119,7 +128,7 @@ export function SubmitForm(props: Props) {
     if (!confirmFieldsFilled(state)) {
       setBanner({
         tone: 'error',
-        text: 'Please fill in title, abstract, department, and at least one author before submitting.',
+        text: 'Please fill in title, abstract, department (or program), and at least one author before submitting.',
       })
       return
     }
@@ -158,11 +167,18 @@ export function SubmitForm(props: Props) {
         </div>
       )}
 
-      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-        <strong>Presenters can only present once.</strong> Because of space and time
-        constraints, each presenter is limited to a single abstract. If more than one
-        abstract is created for the same presenter, only the first one submitted will
-        be accepted.
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 space-y-1.5">
+        <p>
+          <strong>Presenters can only present once.</strong> Because of space and time
+          constraints, each presenter is limited to a single abstract. If more than one
+          abstract is created for the same presenter, only the first one submitted will
+          be accepted.
+        </p>
+        <p>
+          <strong>There are only 32 oral presentation slots.</strong> Individuals that
+          have not previously given an oral presentation will be prioritized in format
+          assignment.
+        </p>
       </div>
 
       {banner && (
@@ -212,7 +228,7 @@ export function SubmitForm(props: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Research stage">
+          <Field label="Research stage" hint={RESEARCH_STAGE_HINT}>
             <select
               value={state.research_stage ?? ''}
               disabled={disabled}
@@ -251,7 +267,10 @@ export function SubmitForm(props: Props) {
         </Field>
       </Section>
 
-      <Section title="Presenter">
+      <Section
+        title="Presenter"
+        hint="If the presenter isn't in one of the four CVMBS departments (e.g. a college-wide program or an undergraduate), leave Department blank and enter the program name instead."
+      >
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Classification">
             <select
@@ -268,7 +287,7 @@ export function SubmitForm(props: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Department" required>
+          <Field label="Department">
             <select
               value={state.department_id ?? ''}
               disabled={disabled}
@@ -284,6 +303,18 @@ export function SubmitForm(props: Props) {
             </select>
           </Field>
         </div>
+        <Field
+          label="Program"
+          hint="If not in a CVMBS department, name the program (e.g. Cell & Molecular Biology, One Health, undergraduate major)."
+        >
+          <input
+            type="text"
+            value={state.program ?? ''}
+            disabled={disabled}
+            onChange={(e) => patch({ program: e.target.value || null })}
+            className={inputClass}
+          />
+        </Field>
       </Section>
 
       <Section
@@ -320,13 +351,13 @@ export function SubmitForm(props: Props) {
           <div className="flex flex-wrap gap-2">
             {SESSION_PREFS.map((p) => (
               <RadioButton
-                key={p}
+                key={p.value}
                 name="session_preference"
-                value={p}
-                checked={state.session_preference === p}
+                value={p.value}
+                checked={state.session_preference === p.value}
                 disabled={disabled}
-                onChange={() => patch({ session_preference: p })}
-                label={p}
+                onChange={() => patch({ session_preference: p.value })}
+                label={p.label}
               />
             ))}
           </div>
@@ -417,7 +448,8 @@ export function SubmitForm(props: Props) {
 function confirmFieldsFilled(s: SubmissionInput) {
   if (!s.title.trim()) return false
   if (!s.abstract.trim()) return false
-  if (!s.department_id) return false
+  // Presenter must be in a CVMBS department OR name a program.
+  if (!s.department_id && !s.program?.trim()) return false
   const nonEmpty = s.authors.filter(
     (a) => a.profile_id || a.faculty_id || (a.display_name && a.display_name.trim())
   )

@@ -68,11 +68,11 @@ export const scheduleData: ScheduleEvent[] = [
     time: '4:15 – 5:00 pm',
     title: 'Research Day Keynote',
     location: 'Auditorium',
-    description: 'Speaker TBD.',
+    description: 'Dr. Adam Harris',
     type: 'general',
   },
   {
-    time: '5:00 – 5:30 pm',
+    time: '5:00 – 6:00 pm',
     title: 'Awards Ceremony',
     location: 'Auditorium',
     type: 'social',

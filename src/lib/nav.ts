@@ -2,7 +2,6 @@ import {
   Home,
   Info,
   Trophy,
-  Users,
   Calendar,
   FileText,
   Gavel,
@@ -26,7 +25,6 @@ export const publicNav: NavItem[] = [
   { href: '/', label: 'Home', icon: Home, match: (p) => p === '/' },
   { href: '/about', label: 'About', icon: Info, match: startsWith('/about') },
   { href: '/winners-2026', label: '2026 Winners', icon: Trophy, match: startsWith('/winners-2026') },
-  { href: '/committee', label: '2027 Committee', icon: Users, match: startsWith('/committee') },
   { href: '/schedule', label: 'Schedule', icon: Calendar, match: startsWith('/schedule') },
 ]
 

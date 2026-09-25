@@ -28,7 +28,11 @@ export type PreferredPresentationType =
   | 'Poster only'
   | 'No preference'
 
-export type SessionPreference = 'Early' | 'Late' | 'No preference'
+export type SessionPreference =
+  | 'Undergraduate poster'
+  | 'Early'
+  | 'Late'
+  | 'No preference'
 
 export type JudgeEligibility =
   | 'faculty'
@@ -208,6 +212,7 @@ export type Database = {
           submitter_id: string
           classification: string | null
           department_id: string | null
+          program: string | null
           title: string
           abstract: string
           research_type: string | null
@@ -233,6 +238,7 @@ export type Database = {
           submitter_id: string
           classification?: string | null
           department_id?: string | null
+          program?: string | null
           title?: string
           abstract?: string
           research_type?: string | null
@@ -258,6 +264,7 @@ export type Database = {
           submitter_id?: string
           classification?: string | null
           department_id?: string | null
+          program?: string | null
           title?: string
           abstract?: string
           research_type?: string | null

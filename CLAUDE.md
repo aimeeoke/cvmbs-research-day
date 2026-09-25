@@ -64,27 +64,77 @@ A unified conference management platform for Colorado State University's College
       cancel / reactivate flow. Time slot labels are placeholders — replace
       once `src/lib/schedule.ts` has the 2027 schedule.
 
-### Tomorrow's session (Sep 25) — resume here
-- [ ] **Test everything from Sep 24 in the browser.** Migration is applied
-      but nothing UI-tested yet. See test plan in the chat transcript (signup,
-      abstract portal proxy access, presenter-uniqueness enforcement, judge
-      eligibility gating). Existing profile rows may need
-      `UPDATE profiles SET email = LOWER(email);` if any test users have
-      mixed-case emails — the RLS helper does a lowercase compare.
+### Completed (Sep 25, 2026 — content polish + form iteration + email fix)
+- [x] **Home page.** Added Translational Medicine Institute venue line and
+      static "Saturday, January 23, 2027" fallback if `events.event_date`
+      isn't set.
+- [x] **About page.** Merged the 9 committee names inline (Popichak,
+      Bobadilla, Lee, Tang, Janke, Lombard, Oke, Selwyn, Stevenson),
+      removed the "copy being finalized" banner, deleted the standalone
+      `/committee` route + sidebar link.
+- [x] **Schedule.** Dr. Adam Harris named as keynote; awards ceremony
+      extended to 5:00 – 6:00 pm.
+- [x] **Submit form iteration.**
+  - Research stage now has the definition hint from the PRD 9/15 update:
+    Early = undergrad / post-bacc / grad or resident with ≤2 yrs in
+    program; Advanced = completed prelims and/or >2 yrs research
+    experience.
+  - New optional **Program** free-text field for presenters not in a
+    CVMBS department (undergrads, cross-college programs). Department is
+    now optional; server-side validation requires *at least one* of
+    department or program.
+  - Session preference options rewritten with schedule times:
+    Undergraduate poster (10:15–11:15) · Early (11:30–1:30) ·
+    Late (1:45–3:45) · No preference.
+  - Author role checkboxes replaced with 3-option radio
+    (**Author / Presenter / Mentor**); name field now labelled
+    "Full name (as it should appear in the program)" with middle-initial
+    hint.
+  - Top yellow banner adds oral caution: "only 32 oral slots · people
+    who haven't previously presented orally are prioritized."
+- [x] **Judge form rewrite.** Replaced eligibility radio with a **Role**
+      dropdown (14 options incl. dual-degree DVM trainees). Eligibility is
+      auto-derived: Faculty → faculty; Research Staff / Postdoc →
+      advanced; DVM / MS / Post-bacc / DVM-MS / DVM-MPH / DVM-MBA → early;
+      Resident / Resident-PhD / PhD student / DVM-PhD show a manual
+      Early-vs-Advanced picker; Undergraduate is blocked. Time slots now
+      use the real schedule slots (10:15–11:15, 11:30–1:30, 1:45–3:45).
+      Role id round-trips through the existing `detailed_role` column.
+- [x] **Email troubleshooting (documented).** New signups fell back to
+      Supabase's default "Confirm signup" template (which uses the link).
+      Fix: edit that template body in Supabase Dashboard → Auth → Templates
+      to mirror the Magic Link one using `{{ .Token }}`. Both must be
+      customized for OTP-code UX end-to-end.
+
+### Next session — resume here
+- [ ] **Waiting on user for:** the Abstract Guidelines document and
+      the finalized About page copy. Both were flagged Sep 25 as
+      still pending from Aimee's side.
+- [ ] **Reconcile the PRD.** The markdown PRDs in `tasks/` are stale;
+      only the `.docx` version has the 9/15 updates. And the Sep 23–25
+      build has diverged from the original vision in several ways (the
+      submit form landed cleaner than the PRD sketch). PRD needs a
+      pass before it can be trusted again.
+- [ ] **Finish browser testing** of the Sep 24 + Sep 25 changes. Only
+      Aimee's own profile exists so far, so multi-user scenarios (mentor
+      access via faculty.profile_id, presenter opens someone else's
+      submission, auto-linking on signup, cross-submitter presenter
+      uniqueness) are all deferred until testers are recruited. Test
+      plan lives in the Sep 25 chat transcript.
+- [ ] Update Supabase **Confirm signup** template (Auth → Templates)
+      to mirror the Magic Link one so new signups get the OTP code
+      instead of the default link, then re-verify signup on a fresh
+      email.
 - [ ] **Task 6 — Settings.** Password set/change + role-request form that
-      writes to the new `role_requests` table (DB-backed queue, not email).
-- [ ] **Task 7 — Public content.** Populate `/about` (awards info coming
-      via email from user), `/winners-2026` (from vetmedbiosci page), and
-      `/committee` (already stubbed with 9 names — may just need styling).
-- [ ] **Task 8 — Faculty CSV loader.** `CVMBS-Faculty.csv` is at the repo
-      root. Need a one-off script that normalizes: title-case first names
-      that arrived lowercase, lowercase all emails, then upserts into the
-      `faculty` table with `department_id` matched from the CSV.
-- [ ] **Task 9 — 2027 schedule.** Same as 2026 with keynote replaced by
-      **Dr. Adam Harris**. Update `src/lib/schedule.ts` and then swap the
-      placeholder time-slot labels in `src/app/(app)/judge/page.tsx`.
-- [ ] Author enhancements (deferred from earlier list):
-  - [ ] Capture Green Labs Ambassador status *per author* on the submission form.
+      writes to the `role_requests` table.
+- [ ] **Task 7 — Public content.** Populate `/winners-2026` (from
+      vetmedbiosci page). `/about` and `/committee` (merged) are done.
+- [ ] **Task 8 — Faculty CSV loader.** `CVMBS-Faculty.csv` is at repo
+      root. Normalize: title-case first names, lowercase emails, upsert
+      into `faculty` with `department_id` matched from the CSV. Blocks
+      the author autocomplete from being useful.
+- [ ] Author enhancements (deferred):
+  - [ ] Capture Green Labs Ambassador status *per author* on the submit form.
   - [ ] Admin name-canonicalization for student misspellings.
 - [ ] Convert `affiliations` from free text to multi-select from an
       admin-managed list.
@@ -94,11 +144,11 @@ A unified conference management platform for Colorado State University's College
 1. `supabase/schema.sql` — Sep 23, 2026 (initial V2 schema)
 2. `supabase/migrations/2026-09-24_first_last_name.sql` — first_name/last_name + trigger update
 3. `supabase/migrations/2026-09-24_schema_tweaks.sql` — multi-draft, author email, RLS helper, judge_registrations, role_requests
+4. `supabase/migrations/2026-09-25_form_updates.sql` — Sep 25, 2026 — presenter program column + widened session_preference CHECK
 
 ### Deploy (when ready)
-- [ ] Bootstrap the admin role once signed in: `INSERT INTO user_roles (user_id,
-      role) SELECT id, 'admin' FROM profiles WHERE email = 'aimeeoke@colostate.edu'
-      ON CONFLICT DO NOTHING;`
+- [ ] Bootstrap the admin role once signed in (see SQL above under
+      "Also worth running").
 - [ ] Deploy to Vercel with custom domain `researchday.vercel.app`.
 - [ ] Add production URL to Supabase Auth → URL Configuration redirect list.
 
@@ -196,3 +246,13 @@ src/
 
 ## Related Documentation
 - See `ARCHITECTURE-V2.md` in the research-day-scoring repo for full architecture plan
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

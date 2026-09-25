@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Gavel, Loader2, XCircle } from 'lucide-react'
 import type { JudgeEligibility, JudgeFormat } from '@/lib/types/database'
 import {
@@ -13,31 +13,32 @@ import {
 export type TimeSlot = { id: string; label: string; hint?: string }
 export type FormatOption = { id: JudgeFormat; label: string; hint: string }
 
-const ELIGIBILITY_OPTIONS: {
-  id: JudgeEligibility
+/**
+ * Judge role list. `eligibility` may be:
+ *   - a specific JudgeEligibility (auto-assigned; no manual picker shown)
+ *   - 'ask'  (show an Early vs Advanced picker)
+ */
+type RoleOption = {
+  id: string
   label: string
-  hint: string
-}[] = [
-  {
-    id: 'faculty',
-    label: 'Faculty',
-    hint: 'Can judge oral, regular poster, and undergraduate poster sessions.',
-  },
-  {
-    id: 'advanced_trainee',
-    label: 'Advanced-stage trainee',
-    hint: 'Postdoc, senior PhD, resident, etc. Can judge regular and undergraduate poster sessions.',
-  },
-  {
-    id: 'early_trainee',
-    label: 'Early-stage trainee',
-    hint: 'Early PhD, DVM, MS, MPH, etc. Can only judge the undergraduate poster session.',
-  },
-  {
-    id: 'undergrad',
-    label: 'Undergraduate',
-    hint: 'Undergraduates cannot judge Research Day.',
-  },
+  eligibility: JudgeEligibility | 'ask'
+}
+
+const ROLE_OPTIONS: RoleOption[] = [
+  { id: 'faculty',            label: 'Faculty',                              eligibility: 'faculty' },
+  { id: 'research_staff',     label: 'Research Staff',                       eligibility: 'advanced_trainee' },
+  { id: 'postdoc',            label: 'Postdoc / Research Scientist',         eligibility: 'advanced_trainee' },
+  { id: 'resident',           label: 'Resident',                             eligibility: 'ask' },
+  { id: 'resident_phd',       label: 'Resident / PhD Candidate',             eligibility: 'ask' },
+  { id: 'dvm_student',        label: 'DVM student',                          eligibility: 'early_trainee' },
+  { id: 'ms_student',         label: 'MS student',                           eligibility: 'early_trainee' },
+  { id: 'phd_student',        label: 'PhD student',                          eligibility: 'ask' },
+  { id: 'postbac',            label: 'Post-baccalaureate',                   eligibility: 'early_trainee' },
+  { id: 'dvm_phd',            label: 'DVM / PhD dual-degree student',        eligibility: 'ask' },
+  { id: 'dvm_ms',             label: 'DVM / MS dual-degree student',         eligibility: 'early_trainee' },
+  { id: 'dvm_mph',            label: 'DVM / MPH dual-degree student',        eligibility: 'early_trainee' },
+  { id: 'dvm_mba',            label: 'DVM / MBA dual-degree student',        eligibility: 'early_trainee' },
+  { id: 'undergrad',          label: 'Undergraduate',                        eligibility: 'undergrad' },
 ]
 
 const ALLOWED: Record<JudgeEligibility, JudgeFormat[]> = {
@@ -45,6 +46,23 @@ const ALLOWED: Record<JudgeEligibility, JudgeFormat[]> = {
   advanced_trainee: ['poster_regular', 'poster_undergrad'],
   early_trainee: ['poster_undergrad'],
   undergrad: [],
+}
+
+/** Given a stored eligibility, guess which role option it came from. Used when
+ *  loading an existing registration whose role string is not in ROLE_OPTIONS
+ *  (e.g. legacy free-text). Falls back to the first role that matches. */
+function findRoleIdForExisting(
+  detailedRole: string | null,
+  eligibility: JudgeEligibility
+): string {
+  if (detailedRole) {
+    const byId = ROLE_OPTIONS.find((r) => r.id === detailedRole)
+    if (byId) return byId.id
+  }
+  const match = ROLE_OPTIONS.find(
+    (r) => r.eligibility === eligibility || r.eligibility === 'ask'
+  )
+  return match?.id ?? 'faculty'
 }
 
 type ExistingRegistration = {
@@ -79,15 +97,39 @@ export function JudgeForm({
   const [firstName, setFirstName] = useState(existing?.first_name ?? defaultFirstName)
   const [lastName, setLastName] = useState(existing?.last_name ?? defaultLastName)
   const [email, setEmail] = useState(existing?.email ?? defaultEmail)
-  const [eligibility, setEligibility] = useState<JudgeEligibility>(
-    existing?.eligibility ?? 'faculty'
+
+  const initialRoleId = existing
+    ? findRoleIdForExisting(existing.detailed_role, existing.eligibility)
+    : 'faculty'
+  const [roleId, setRoleId] = useState<string>(initialRoleId)
+
+  const currentRole = ROLE_OPTIONS.find((r) => r.id === roleId) ?? ROLE_OPTIONS[0]
+
+  // For "ask" roles, we remember the manual choice separately so switching
+  // roles doesn't clobber it.
+  const [manualEligibility, setManualEligibility] = useState<
+    'early_trainee' | 'advanced_trainee'
+  >(
+    existing?.eligibility === 'advanced_trainee'
+      ? 'advanced_trainee'
+      : 'early_trainee'
   )
-  const [detailedRole, setDetailedRole] = useState(existing?.detailed_role ?? '')
+
+  const eligibility: JudgeEligibility =
+    currentRole.eligibility === 'ask' ? manualEligibility : currentRole.eligibility
+
   const [slots, setSlots] = useState<string[]>(existing?.preferred_time_slots ?? [])
   const [selectedFormats, setSelectedFormats] = useState<JudgeFormat[]>(
     existing?.preferred_formats ?? []
   )
   const [conflicts, setConflicts] = useState(existing?.conflicts ?? '')
+
+  // If eligibility changes (either by role change or manual switch), drop any
+  // format selections that are no longer permitted.
+  useEffect(() => {
+    const allowed = ALLOWED[eligibility]
+    setSelectedFormats((prev) => prev.filter((f) => allowed.includes(f)))
+  }, [eligibility])
 
   const [isPending, startTransition] = useTransition()
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
@@ -107,13 +149,6 @@ export function JudgeForm({
       prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
     )
 
-  // Drop any selected formats that are no longer allowed for the new eligibility.
-  const changeEligibility = (next: JudgeEligibility) => {
-    setEligibility(next)
-    const allowed = ALLOWED[next]
-    setSelectedFormats((prev) => prev.filter((f) => allowed.includes(f)))
-  }
-
   const submit = () => {
     setBanner(null)
     const input: JudgeRegistrationInput = {
@@ -121,7 +156,8 @@ export function JudgeForm({
       last_name: lastName,
       email,
       eligibility,
-      detailed_role: detailedRole || null,
+      // Store the role id so we can round-trip it on re-open.
+      detailed_role: roleId,
       preferred_time_slots: slots,
       preferred_formats: selectedFormats,
       conflicts: conflicts || null,
@@ -239,36 +275,65 @@ export function JudgeForm({
         </Field>
       </Section>
 
-      <Section title="Your role">
-        <div className="space-y-2">
-          {ELIGIBILITY_OPTIONS.map((opt) => (
-            <label
-              key={opt.id}
-              className="flex items-start gap-2 p-2 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
-            >
-              <input
-                type="radio"
-                name="eligibility"
-                value={opt.id}
-                checked={eligibility === opt.id}
-                onChange={() => changeEligibility(opt.id)}
-                className="mt-1"
-              />
-              <span className="text-sm text-gray-800">
-                <span className="font-medium">{opt.label}</span>
-                <span className="block text-xs text-gray-500">{opt.hint}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-        <Field label="More detail (optional)" hint="e.g., PhD Student, Year 5 · Postdoc in Popichak Lab">
-          <input
-            type="text"
-            value={detailedRole}
-            onChange={(e) => setDetailedRole(e.target.value)}
+      <Section title="Your role" hint="Pick the option that best describes you.">
+        <Field label="Role" required>
+          <select
+            value={roleId}
+            onChange={(e) => setRoleId(e.target.value)}
             className={inputClass}
-          />
+          >
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label}
+              </option>
+            ))}
+          </select>
         </Field>
+
+        {currentRole.eligibility === 'ask' && (
+          <Field
+            label="Are you an early- or advanced-stage trainee?"
+            required
+            hint="Early = starting your training; advanced = late in your training. Advanced trainees can judge posters; early trainees can only judge the undergraduate poster session."
+          >
+            <div className="flex flex-wrap gap-2">
+              <label
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm cursor-pointer ${
+                  manualEligibility === 'early_trainee'
+                    ? 'bg-[#1E4D2B] text-white border-[#1E4D2B]'
+                    : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="manual_eligibility"
+                  value="early_trainee"
+                  checked={manualEligibility === 'early_trainee'}
+                  onChange={() => setManualEligibility('early_trainee')}
+                  className="sr-only"
+                />
+                Early-stage trainee
+              </label>
+              <label
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm cursor-pointer ${
+                  manualEligibility === 'advanced_trainee'
+                    ? 'bg-[#1E4D2B] text-white border-[#1E4D2B]'
+                    : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="manual_eligibility"
+                  value="advanced_trainee"
+                  checked={manualEligibility === 'advanced_trainee'}
+                  onChange={() => setManualEligibility('advanced_trainee')}
+                  className="sr-only"
+                />
+                Advanced-stage trainee
+              </label>
+            </div>
+          </Field>
+        )}
       </Section>
 
       {cannotJudge ? (

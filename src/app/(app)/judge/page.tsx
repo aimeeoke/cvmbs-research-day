@@ -6,11 +6,22 @@ import { JudgeForm, type FormatOption, type TimeSlot } from './judge-form'
 
 export const metadata = { title: 'Volunteer to Judge · CVMBS Research Day' }
 
-// TODO: pull these from src/lib/schedule.ts once the 2027 schedule is loaded.
 const TIME_SLOTS: TimeSlot[] = [
-  { id: 'morning', label: 'Morning session', hint: 'Morning of Research Day' },
-  { id: 'afternoon_a', label: 'Early afternoon session' },
-  { id: 'afternoon_b', label: 'Late afternoon session' },
+  {
+    id: 'undergrad_poster',
+    label: '10:15 – 11:15 am',
+    hint: 'Undergraduate poster session',
+  },
+  {
+    id: 'session_1',
+    label: '11:30 am – 1:30 pm',
+    hint: 'Session I — Oral 1A/1B + poster session 1 (odd numbers)',
+  },
+  {
+    id: 'session_2',
+    label: '1:45 – 3:45 pm',
+    hint: 'Session II — Oral 2A/2B + poster session 2 (even numbers)',
+  },
 ]
 
 const FORMATS: FormatOption[] = [

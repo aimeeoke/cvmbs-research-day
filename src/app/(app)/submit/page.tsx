@@ -126,6 +126,7 @@ export default async function SubmitPage({
     classification: submission.classification ?? user.profile?.classification ?? null,
     department_id:
       submission.department_id ?? user.profile?.department_id ?? null,
+    program: (submission as { program?: string | null }).program ?? null,
     research_type: submission.research_type ?? null,
     research_stage: submission.research_stage ?? null,
     funding: submission.funding ?? null,

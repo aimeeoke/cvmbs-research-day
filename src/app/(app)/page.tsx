@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Calendar, FileText, Info, LogIn } from 'lucide-react'
+import { Calendar, FileText, Info, LogIn, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 
@@ -36,7 +36,13 @@ export default async function Home() {
         <h1 className="text-3xl sm:text-4xl font-bold text-[#1E4D2B]">
           {event?.name ?? 'CVMBS Research Day'}
         </h1>
-        {dateLabel && <p className="text-gray-700 mt-1">{dateLabel}</p>}
+        <p className="text-gray-700 mt-1">
+          {dateLabel ?? 'Saturday, January 23, 2027'}
+        </p>
+        <p className="text-gray-600 mt-0.5 flex items-center gap-1.5">
+          <MapPin size={14} className="text-[#C8C372]" />
+          Translational Medicine Institute
+        </p>
         <p className="text-gray-600 mt-3 max-w-2xl">
           The annual showcase of research from the College of Veterinary Medicine and
           Biomedical Sciences. Submit your abstract, explore the schedule, and get ready

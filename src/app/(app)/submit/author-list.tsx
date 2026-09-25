@@ -137,7 +137,7 @@ function AuthorRow({
         <div className="flex-1 min-w-0 space-y-2">
           <div className="relative">
             <label className="block text-xs font-medium text-gray-600 mb-1">
-              Author name
+              Full name (as it should appear in the program)
             </label>
             <input
               type="text"
@@ -153,9 +153,12 @@ function AuthorRow({
               }}
               onFocus={() => setShowSuggest(true)}
               onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
-              placeholder="e.g. Jane Doe"
+              placeholder="e.g. Jane A. Doe"
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Include middle initial only if the author uses one professionally.
+            </p>
             {showSuggest && suggestions.length > 0 && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-auto">
                 {suggestions.map((f) => (
@@ -196,25 +199,34 @@ function AuthorRow({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <label className="inline-flex items-center gap-1.5">
-              <input
-                type="checkbox"
+          <div>
+            <div className="text-xs font-medium text-gray-600 mb-1">Role</div>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <RoleRadio
+                name={`role-${idx}`}
+                value="author"
+                checked={!author.is_presenter && !author.is_mentor}
+                disabled={disabled}
+                onChange={() => onChange({ is_presenter: false, is_mentor: false })}
+                label="Author"
+              />
+              <RoleRadio
+                name={`role-${idx}`}
+                value="presenter"
                 checked={author.is_presenter}
                 disabled={disabled}
-                onChange={(e) => onChange({ is_presenter: e.target.checked })}
+                onChange={() => onChange({ is_presenter: true, is_mentor: false })}
+                label="Presenter"
               />
-              Presenter
-            </label>
-            <label className="inline-flex items-center gap-1.5">
-              <input
-                type="checkbox"
+              <RoleRadio
+                name={`role-${idx}`}
+                value="mentor"
                 checked={author.is_mentor}
                 disabled={disabled}
-                onChange={(e) => onChange({ is_mentor: e.target.checked })}
+                onChange={() => onChange({ is_presenter: false, is_mentor: true })}
+                label="Mentor"
               />
-              Mentor
-            </label>
+            </div>
           </div>
 
           {author.is_presenter && (
@@ -238,7 +250,7 @@ function AuthorRow({
           )}
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 items-end">
           <button
             type="button"
             onClick={onMoveUp}
@@ -269,5 +281,42 @@ function AuthorRow({
         </div>
       </div>
     </div>
+  )
+}
+
+function RoleRadio({
+  name,
+  value,
+  checked,
+  disabled,
+  onChange,
+  label,
+}: {
+  name: string
+  value: string
+  checked: boolean
+  disabled?: boolean
+  onChange: () => void
+  label: string
+}) {
+  return (
+    <label
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border cursor-pointer ${
+        checked
+          ? 'bg-[#1E4D2B] text-white border-[#1E4D2B]'
+          : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+      } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+        className="sr-only"
+      />
+      {label}
+    </label>
   )
 }

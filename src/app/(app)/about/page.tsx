@@ -4,10 +4,16 @@ export const metadata = {
   title: 'About · CVMBS Research Day',
 }
 
-// Placeholder committee list — replace when the 2027 committee is confirmed.
 const committeeMembers = [
+  'Katriana Popichak',
+  'AC Bobadilla',
+  'Debbie Lee',
+  'Rio Tang',
+  'Natasha Janke',
+  'Jason Lombard',
   'Aimee Oke',
-  // TODO: add 2027 committee members
+  'Vanessa Selwyn',
+  'Wendy Stevenson',
 ]
 
 export default function AboutPage() {
@@ -16,9 +22,6 @@ export default function AboutPage() {
       <h1 className="text-3xl font-bold text-[#1E4D2B]">About Research Day</h1>
 
       <Section icon={<Info size={22} />} title="About the Event">
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-          2027 event copy is being finalized — this page will be updated soon.
-        </p>
         <p>
           Research Day is an annual showcase celebrating research from the College of
           Veterinary Medicine and Biomedical Sciences community. The symposium gives

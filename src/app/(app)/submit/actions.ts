@@ -9,6 +9,8 @@ import type {
   SubmissionStatus,
 } from '@/lib/types/database'
 
+export type AuthorRole = 'author' | 'presenter' | 'mentor'
+
 export type AuthorInput = {
   position: number
   profile_id: string | null
@@ -24,6 +26,7 @@ export type SubmissionInput = {
   abstract: string
   classification: string | null
   department_id: string | null
+  program: string | null
   research_type: string | null
   research_stage: string | null
   funding: string | null
@@ -146,6 +149,7 @@ async function persistSubmission(
     abstract: input.abstract,
     classification: input.classification,
     department_id: input.department_id,
+    program: input.program,
     research_type: input.research_type,
     research_stage: input.research_stage,
     funding: input.funding,

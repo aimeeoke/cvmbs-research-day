@@ -127,8 +127,9 @@ A unified conference management platform for Colorado State University's College
       email.
 - [ ] **Task 6 — Settings.** Password set/change + role-request form that
       writes to the `role_requests` table.
-- [ ] **Task 7 — Public content.** Populate `/winners-2026` (from
-      vetmedbiosci page). `/about` and `/committee` (merged) are done.
+- [x] **Task 7 — Public content.** Populated `/winners-2026` from
+      vetmedbiosci.colostate.edu/research/research-day (Sep 28, 2026).
+      `/about` and `/committee` (merged) are done.
 - [ ] **Task 8 — Faculty CSV loader.** `CVMBS-Faculty.csv` is at repo
       root. Normalize: title-case first names, lowercase emails, upsert
       into `faculty` with `department_id` matched from the CSV. Blocks
@@ -146,11 +147,13 @@ A unified conference management platform for Colorado State University's College
 3. `supabase/migrations/2026-09-24_schema_tweaks.sql` — multi-draft, author email, RLS helper, judge_registrations, role_requests
 4. `supabase/migrations/2026-09-25_form_updates.sql` — Sep 25, 2026 — presenter program column + widened session_preference CHECK
 
-### Deploy (when ready)
-- [ ] Bootstrap the admin role once signed in (see SQL above under
-      "Also worth running").
-- [ ] Deploy to Vercel with custom domain `researchday.vercel.app`.
-- [ ] Add production URL to Supabase Auth → URL Configuration redirect list.
+### Deploy
+- [x] **Sep 28, 2026 — Vercel cutover done.** `researchday.vercel.app`
+      now serves this repo (was previously the V1 Vite site at
+      `aimeeoke/ResearchDay`). Supabase Auth Site URL + Redirect URLs
+      updated to trust the production domain.
+- [ ] Bootstrap the admin role once signed in on prod (see SQL above
+      under "Also worth running").
 
 ### After go-live
 - [ ] Sponsors tab (data model + page)

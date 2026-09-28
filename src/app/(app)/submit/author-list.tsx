@@ -170,13 +170,8 @@ function AuthorRow({
                     className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0"
                   >
                     <div className="text-sm font-medium text-gray-900">{f.full_name}</div>
-                    <div className="text-xs text-gray-500 flex items-center gap-2">
-                      <span>{f.department_name ?? 'CVMBS Faculty'}</span>
-                      {f.green_labs_certified && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-green-100 text-green-800 text-[10px] font-medium">
-                          Green Labs
-                        </span>
-                      )}
+                    <div className="text-xs text-gray-500">
+                      {f.department_name ?? 'CVMBS Faculty'}
                     </div>
                   </button>
                 ))}

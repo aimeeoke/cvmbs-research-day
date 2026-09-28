@@ -167,17 +167,12 @@ export function SubmitForm(props: Props) {
         </div>
       )}
 
-      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 space-y-1.5">
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
         <p>
           <strong>Presenters can only present once.</strong> Because of space and time
           constraints, each presenter is limited to a single abstract. If more than one
           abstract is created for the same presenter, only the first one submitted will
           be accepted.
-        </p>
-        <p>
-          <strong>There are only 32 oral presentation slots.</strong> Individuals that
-          have not previously given an oral presentation will be prioritized in format
-          assignment.
         </p>
       </div>
 
@@ -319,7 +314,7 @@ export function SubmitForm(props: Props) {
 
       <Section
         title="Authors"
-        hint="Add every author in citation order. For CSU folks, pick from the faculty list when it appears so we can credit Green Labs correctly. External coauthors can be added by name only."
+        hint="Add every author in citation order. Include your mentor(s) in this list — traditionally they appear in the last position. External coauthors can be added by name only."
       >
         <AuthorList
           value={state.authors}
@@ -332,6 +327,11 @@ export function SubmitForm(props: Props) {
       </Section>
 
       <Section title="Preferences">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <strong>There are only 32 oral presentation slots.</strong> Individuals who
+          have not previously given an oral presentation will be prioritized in format
+          assignment.
+        </div>
         <Field label="Preferred presentation type">
           <div className="flex flex-wrap gap-2">
             {PRESENTATION_PREFS.map((p) => (

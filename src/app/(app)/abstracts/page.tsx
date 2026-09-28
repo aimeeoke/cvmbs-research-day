@@ -1,10 +1,10 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { FileText, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import type { SubmissionStatus } from '@/lib/types/database'
 import { startNewSubmission } from './actions'
+import { RowActions } from './row-actions'
 
 export const metadata = { title: 'Abstract Portal · CVMBS Research Day' }
 
@@ -24,6 +24,7 @@ type SubmissionRow = {
   title: string
   status: SubmissionStatus
   submitter_id: string
+  withdrawal_requested_at: string | null
   created_at: string
   submission_authors: AuthorRow[]
 }
@@ -37,7 +38,7 @@ export default async function AbstractsPage() {
   const { data: submissions, error } = await supabase
     .from('submissions')
     .select(
-      `id, title, status, submitter_id, created_at,
+      `id, title, status, submitter_id, withdrawal_requested_at, created_at,
        submission_authors(
          display_name, email, is_presenter, is_mentor, profile_id, faculty_id,
          profiles(first_name, last_name, full_name),
@@ -131,6 +132,11 @@ export default async function AbstractsPage() {
                   </td>
                   <td className="px-4 py-3 align-top">
                     <StatusPill status={r.status} />
+                    {r.withdrawalRequestedAt && r.status !== 'withdrawn' && (
+                      <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-medium">
+                        Withdrawal requested
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 align-top">
                     <div className="flex flex-wrap gap-1">
@@ -145,12 +151,13 @@ export default async function AbstractsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 align-top text-right">
-                    <Link
-                      href={`/submit?id=${r.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#1E4D2B] text-[#1E4D2B] text-xs font-semibold hover:bg-[#1E4D2B]/5"
-                    >
-                      {r.editable ? 'Edit' : 'View'}
-                    </Link>
+                    <RowActions
+                      submissionId={r.id}
+                      status={r.status}
+                      editable={r.editable}
+                      isSubmitter={r.isSubmitter}
+                      withdrawalRequestedAt={r.withdrawalRequestedAt}
+                    />
                   </td>
                 </tr>
               ))}
@@ -197,6 +204,8 @@ function summarize(s: SubmissionRow, userId: string, userEmail: string | null) {
     presenterEmail,
     myRoles,
     editable: s.status === 'draft' || s.status === 'submitted',
+    isSubmitter: s.submitter_id === userId,
+    withdrawalRequestedAt: s.withdrawal_requested_at,
   }
 }
 

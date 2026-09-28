@@ -107,9 +107,11 @@ A unified conference management platform for Colorado State University's College
       customized for OTP-code UX end-to-end.
 
 ### Next session — resume here
-- [ ] **Waiting on user for:** the Abstract Guidelines document and
-      the finalized About page copy. Both were flagged Sep 25 as
-      still pending from Aimee's side.
+- [x] **Abstract Guidelines received + live (Sep 28, 2026).** PDF
+      uploaded to Supabase Storage `public-docs` bucket; the landing
+      page callout is live in production.
+- [ ] **Waiting on user for:** the finalized About page copy (still
+      pending from Aimee's side as of Sep 25).
 - [ ] **Reconcile the PRD.** The markdown PRDs in `tasks/` are stale;
       only the `.docx` version has the 9/15 updates. And the Sep 23–25
       build has diverged from the original vision in several ways (the
@@ -182,9 +184,37 @@ A unified conference management platform for Colorado State University's College
 - [ ] Author enhancements (deferred):
   - [ ] Capture Green Labs Ambassador status *per author* on the submit form.
   - [ ] Admin name-canonicalization for student misspellings.
-- [ ] Convert `affiliations` from free text to multi-select from an
-      admin-managed list.
-- [ ] "Abstract Instructions" doc / on-page guidance for submitters.
+- [x] ~~Convert affiliations from free text to multi-select~~ — done
+      via the grouped checkbox picker above (source is a CSV rather than
+      an admin-managed list, but functionally equivalent for now).
+- [x] ~~"Abstract Instructions" doc / on-page guidance for submitters~~
+      — replaced by the Guidelines PDF link on the landing page.
+- [x] **PRD reconciled (Sep 28, 2026).** `tasks/prd-cvmbs-research-day.md`
+      rewritten with a status legend (✅/🟡/⬜/🔵/⚫), 9/15/26 decisions
+      folded in, and an Admin Backlog section that lists shipping-order
+      priorities. `tasks/prd-phase0-foundation.md` collapsed to a
+      "Phase 0 complete" marker pointing at the main PRD. `.docx` files
+      preserved as historical originals.
+- [x] **Admin console shell + first two pages (Sep 28, 2026).** New
+      `/admin/*` routes: gated in `admin/layout.tsx` (isAdmin check,
+      non-admins redirected to `/`). Index (`/admin`) shows two cards
+      with live pending-count badges. **Requests page**
+      (`/admin/requests`) — grant/deny pending role requests + approve/
+      reject withdrawal requests, plus a "recently resolved" tail for
+      audit. Grant is idempotent on the user_roles PK. **Abstracts
+      overview** (`/admin/abstracts`) — aggregate count cards by status,
+      amber banner if any withdrawals pending, filterable table
+      (status/dept/session/free-text search), click-in detail at
+      `/admin/abstracts/[id]`. Click-in view reuses `SubmitForm` with a
+      new `adminView` prop; admins can edit any field regardless of
+      status (finalized/withdrawn lock bypassed for admin role in
+      `persistSubmission`). **Mentor picker default** flipped: new
+      drafts start Faculty Mentor 1/2 in CVMBS picker mode so people
+      don't rush past the autocomplete and type a name that's actually
+      in the roster; existing "not listed" saves still round-trip
+      correctly.
+- [x] **Admin role bootstrapped on prod (Sep 28, 2026).** Verified via
+      Supabase SQL — the `user_roles` row for aimeeoke is in place.
 
 ### Migrations applied (in order)
 1. `supabase/schema.sql` — Sep 23, 2026 (initial V2 schema)
@@ -198,8 +228,8 @@ A unified conference management platform for Colorado State University's College
       now serves this repo (was previously the V1 Vite site at
       `aimeeoke/ResearchDay`). Supabase Auth Site URL + Redirect URLs
       updated to trust the production domain.
-- [ ] Bootstrap the admin role once signed in on prod (see SQL above
-      under "Also worth running").
+- [x] Admin role bootstrapped on prod (Sep 28, 2026) — the `user_roles`
+      row exists; sidebar shows Admin link and `/admin/*` is reachable.
 
 ### After go-live
 - [ ] Sponsors tab (data model + page)

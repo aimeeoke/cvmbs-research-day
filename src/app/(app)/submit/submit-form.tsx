@@ -36,6 +36,8 @@ type Props = {
   editingLocked: boolean
   finalizeDeadline: string | null
   isSubmitter: boolean
+  /** Admin read-only view — locks the form, hides mentor/edit banners, swaps header. */
+  adminView?: boolean
 }
 
 type PresenterFields = {
@@ -154,13 +156,17 @@ function deserialize(initial: SubmissionInput): FormState {
       profile_id: presenterRow?.profile_id ?? null,
       faculty_id: presenterRow?.faculty_id ?? null,
     },
+    // Default to the CVMBS faculty picker so people don't rush past the
+    // autocomplete and type a name that's actually in the roster. We only fall
+    // back to 'not_listed' when an existing row was previously saved that way
+    // (no faculty_id set).
     mentor_cvmbs_1: {
-      mode: cvmbs1Row?.faculty_id ? 'picker' : 'not_listed',
+      mode: cvmbs1Row && !cvmbs1Row.faculty_id ? 'not_listed' : 'picker',
       faculty_id: cvmbs1Row?.faculty_id ?? null,
       name: cvmbs1Row?.display_name ?? '',
     },
     mentor_cvmbs_2: {
-      mode: cvmbs2Row?.faculty_id ? 'picker' : 'not_listed',
+      mode: cvmbs2Row && !cvmbs2Row.faculty_id ? 'not_listed' : 'picker',
       faculty_id: cvmbs2Row?.faculty_id ?? null,
       name: cvmbs2Row?.display_name ?? '',
     },
@@ -287,7 +293,13 @@ export function SubmitForm(props: Props) {
   const [isPending, startTransition] = useTransition()
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
 
-  const disabled = props.editingLocked || status === 'finalized' || status === 'withdrawn'
+  // Admins can edit any submission regardless of status; only the submitter
+  // view honors the finalize deadline + finalized/withdrawn lock.
+  const disabled = props.adminView
+    ? false
+    : props.editingLocked ||
+      status === 'finalized' ||
+      status === 'withdrawn'
 
   const patch = (p: Partial<FormState>) => setState((s) => ({ ...s, ...p }))
 
@@ -363,13 +375,17 @@ export function SubmitForm(props: Props) {
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
-      <StatusHeader
-        status={status}
-        finalizeDeadline={props.finalizeDeadline}
-        editingLocked={props.editingLocked}
-      />
+      {props.adminView ? (
+        <AdminViewHeader status={status} />
+      ) : (
+        <StatusHeader
+          status={status}
+          finalizeDeadline={props.finalizeDeadline}
+          editingLocked={props.editingLocked}
+        />
+      )}
 
-      {!props.isSubmitter && !disabled && (
+      {!props.adminView && !props.isSubmitter && !disabled && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
           You&apos;re editing this abstract as a mentor or presenter — the changes save
           against the submission owned by whoever originally created it.
@@ -755,6 +771,31 @@ export function SubmitForm(props: Props) {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function AdminViewHeader({ status }: { status: SubmissionStatus }) {
+  const label = statusLabel(status)
+  const tone = statusTone(status)
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div>
+        <h1 className="text-2xl font-bold text-[#1E4D2B]">
+          Abstract (admin editing)
+        </h1>
+        <p className="text-sm text-gray-600 mt-0.5">
+          You can edit any field regardless of status. Save Draft to persist
+          without changing status; Finalize &amp; lock if you&apos;re resolving
+          it for the submitter.
+        </p>
+      </div>
+      <div
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-medium ${tone}`}
+      >
+        {status === 'finalized' ? <Lock size={14} /> : <CheckCircle2 size={14} />}
+        {label}
+      </div>
     </div>
   )
 }

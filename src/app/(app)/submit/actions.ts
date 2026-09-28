@@ -117,7 +117,7 @@ async function persistSubmission(
   input: SubmissionInput,
   nextStatus: SubmissionStatus | null
 ) {
-  const { supabase } = await requireUser()
+  const { supabase, user } = await requireUser()
 
   // Load the submission for status invariants. Access is enforced by RLS —
   // if the user is not the submitter, presenter, mentor, or admin, this
@@ -130,7 +130,19 @@ async function persistSubmission(
 
   if (loadErr) throw new Error(loadErr.message)
   if (!current) throw new Error('Submission not found or you do not have access.')
-  if (current.status === 'finalized' || current.status === 'withdrawn') {
+
+  // Admins can edit any submission regardless of status (used for /admin/abstracts
+  // fix-ups). Everyone else is locked out of finalized/withdrawn rows.
+  const { data: roleRows } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+  const isAdmin = (roleRows ?? []).some((r) => r.role === 'admin')
+
+  if (
+    !isAdmin &&
+    (current.status === 'finalized' || current.status === 'withdrawn')
+  ) {
     throw new Error('This submission is locked and can no longer be edited.')
   }
 

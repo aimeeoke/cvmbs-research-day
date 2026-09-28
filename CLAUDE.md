@@ -162,11 +162,23 @@ A unified conference management platform for Colorado State University's College
       `AffiliationsPicker`), old `author-list.tsx` deleted.
 - [x] **Affiliations picker (Sep 28, 2026).** Presenter "Affiliations"
       field is now a grouped checkbox picker (Center · Institute ·
-      Laboratory · Program · Training Grant) built from `Affiliations.csv`
+      Laboratory · Program · Training Grant) built from `docs/Affiliations.csv`
       (32 items). CSV is gitignored; run `node scripts/load-affiliations.mjs`
       to regenerate `src/lib/affiliations.generated.ts` when the CSV
       changes. Legacy free-text values from earlier drafts still round-trip
       as amber chips so nothing gets silently dropped.
+- [x] **Local docs folder + guidelines link (Sep 28, 2026).** Moved the
+      three source-of-truth files (Abstract Submission Guidelines PDF,
+      Affiliations.csv, CVMBS-Faculty.csv) into `/docs/` — folder is
+      gitignored. Both loader scripts (`load-faculty.mjs`,
+      `load-affiliations.mjs`) now read from `docs/`. Landing page shows
+      a "Submission guidelines (PDF)" link + callout section when
+      `NEXT_PUBLIC_SUBMISSION_GUIDELINES_URL` env var is set — publicly
+      visible, no sign-in required. To wire it up: upload the PDF to a
+      public Supabase Storage bucket, copy the public URL, and set
+      the env var in Vercel → Project → Settings → Environment Variables
+      (and locally in `.env.local`). Section stays hidden until the env
+      var is present.
 - [ ] Author enhancements (deferred):
   - [ ] Capture Green Labs Ambassador status *per author* on the submit form.
   - [ ] Admin name-canonicalization for student misspellings.

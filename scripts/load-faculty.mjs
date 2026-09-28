@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Reads CVMBS-Faculty.csv from the repo root and emits a Supabase migration
-// that upserts every row into the `faculty` table.
+// Reads docs/CVMBS-Faculty.csv and emits a Supabase migration that upserts
+// every row into the `faculty` table.
 //
 // Usage:  node scripts/load-faculty.mjs
 // Output: supabase/migrations/2026-09-28_load_faculty.sql
@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(here, '..')
 
-const CSV_PATH = join(repoRoot, 'CVMBS-Faculty.csv')
+const CSV_PATH = join(repoRoot, 'docs/CVMBS-Faculty.csv')
 const OUT_PATH = join(repoRoot, 'supabase/migrations/2026-09-28_load_faculty.sql')
 
 // Whitelist of valid department names — must match `departments.name` exactly.

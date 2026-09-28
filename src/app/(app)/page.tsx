@@ -1,11 +1,15 @@
 import Link from 'next/link'
-import { Calendar, FileText, Info, LogIn, MapPin } from 'lucide-react'
+import { BookOpen, Calendar, FileText, Info, LogIn, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 
 export default async function Home() {
   const user = await getCurrentUser()
   const supabase = await createClient()
+
+  // Set NEXT_PUBLIC_SUBMISSION_GUIDELINES_URL in Vercel (and .env.local) to a
+  // public URL for the guidelines PDF. Hidden here until that env var exists.
+  const guidelinesUrl = process.env.NEXT_PUBLIC_SUBMISSION_GUIDELINES_URL
 
   const { data: event } = await supabase
     .from('events')
@@ -81,8 +85,45 @@ export default async function Home() {
             <Info size={16} />
             About
           </Link>
+          {guidelinesUrl && (
+            <a
+              href={guidelinesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-50"
+            >
+              <BookOpen size={16} />
+              Submission guidelines (PDF)
+            </a>
+          )}
         </div>
       </section>
+
+      {guidelinesUrl && (
+        <section className="bg-[#1E4D2B]/5 border border-[#1E4D2B]/20 rounded-2xl p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <BookOpen size={20} className="text-[#1E4D2B] mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-[#1E4D2B]">
+                Read the abstract submission guidelines
+              </h2>
+              <p className="text-sm text-gray-700 mt-1">
+                Formatting rules, author conventions, and what reviewers look for.
+                Please review before you start a submission — it saves everyone
+                revisions later.
+              </p>
+              <a
+                href={guidelinesUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#1E4D2B] hover:text-[#163d22] underline"
+              >
+                Open guidelines PDF →
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
 
       {user && myAbstractCount > 0 && (
         <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">

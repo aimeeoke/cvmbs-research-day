@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Reads Affiliations.csv from the repo root and emits a TypeScript module
-// exporting the list of selectable affiliations (grouped by Type).
+// Reads docs/Affiliations.csv and emits a TypeScript module exporting the
+// list of selectable affiliations (grouped by Type).
 //
 // Usage:  node scripts/load-affiliations.mjs
 // Output: src/lib/affiliations.generated.ts
@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(here, '..')
 
-const CSV_PATH = join(repoRoot, 'Affiliations.csv')
+const CSV_PATH = join(repoRoot, 'docs/Affiliations.csv')
 const OUT_PATH = join(repoRoot, 'src/lib/affiliations.generated.ts')
 
 // Minimal RFC-4180 CSV parser — handles quoted commas but nothing exotic.

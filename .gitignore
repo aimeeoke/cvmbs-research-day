@@ -42,14 +42,12 @@ yarn-error.log*
 # Personal Claude Code overrides (not shared)
 .claude/settings.local.json
 
-# Faculty roster (source-of-truth Excel/CSV, contains directory PII).
-# Regenerate the migration via `node scripts/load-faculty.mjs` when this changes.
-/CVMBS-Faculty.csv
-
-# Affiliations source-of-truth CSV.
-# Regenerate `src/lib/affiliations.generated.ts` via `node scripts/load-affiliations.mjs`
-# when this changes.
-/Affiliations.csv
+# Source-of-truth documents (PDFs, roster CSVs, etc.). Local-only; kept out
+# of git because they carry directory PII and/or are hosted externally on
+# deploy (e.g., Supabase Storage for the Submission Guidelines PDF).
+# - docs/CVMBS-Faculty.csv → regenerate migration via `node scripts/load-faculty.mjs`
+# - docs/Affiliations.csv  → regenerate list via `node scripts/load-affiliations.mjs`
+/docs/
 
 # typescript
 *.tsbuildinfo

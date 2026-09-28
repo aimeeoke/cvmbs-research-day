@@ -3,14 +3,17 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createDraftSubmission } from '../submit/actions'
+import { createDraftSubmission, type SubmitterRole } from '../submit/actions'
+
+const VALID_ROLES: SubmitterRole[] = ['presenter', 'submitter', 'mentor']
 
 /**
- * Create a new draft and redirect straight to its edit page.
- * Called from the "New submission" button in the Abstract Portal.
+ * Create a new draft (optionally pre-seeded with the current user as the
+ * presenter or a mentor) and redirect straight to its edit page.
  */
-export async function startNewSubmission() {
-  const id = await createDraftSubmission()
+export async function startNewSubmission(role: SubmitterRole = 'submitter') {
+  const safeRole: SubmitterRole = VALID_ROLES.includes(role) ? role : 'submitter'
+  const id = await createDraftSubmission(safeRole)
   redirect(`/submit?id=${id}`)
 }
 

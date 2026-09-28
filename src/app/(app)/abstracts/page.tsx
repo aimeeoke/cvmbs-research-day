@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
-import { FileText, Plus } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import type { SubmissionStatus } from '@/lib/types/database'
-import { startNewSubmission } from './actions'
+import { NewSubmissionButton } from './new-submission-button'
 import { RowActions } from './row-actions'
 
 export const metadata = { title: 'Abstract Portal · CVMBS Research Day' }
@@ -70,15 +70,7 @@ export default async function AbstractsPage() {
             Your abstracts and any you can edit as a mentor.
           </p>
         </div>
-        <form action={startNewSubmission}>
-          <button
-            type="submit"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#1E4D2B] text-white text-sm font-semibold hover:bg-[#163d22]"
-          >
-            <Plus size={16} />
-            New submission
-          </button>
-        </form>
+        <NewSubmissionButton />
       </div>
 
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">

@@ -58,13 +58,31 @@ async function getActiveEvent(supabase: Awaited<ReturnType<typeof createClient>>
   return data
 }
 
+export type SubmitterRole = 'presenter' | 'submitter' | 'mentor'
+
 /**
  * Creates a fresh draft submission owned by the current user and returns its id.
- * Used from the Abstract Portal "New submission" button.
+ * Called from the Abstract Portal "New submission" button after the user picks
+ * their role on the abstract. If they said they're the presenter or mentor, we
+ * seed a matching author row with their profile info so the form starts pre-
+ * filled. "submitter" means they're a proxy — we don't insert them anywhere.
  */
-export async function createDraftSubmission(): Promise<string> {
+export async function createDraftSubmission(
+  role: SubmitterRole = 'submitter'
+): Promise<string> {
   const { supabase, user } = await requireUser()
   const event = await getActiveEvent(supabase)
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, first_name, last_name, email')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const displayName =
+    profile?.full_name?.trim() ||
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() ||
+    null
 
   const { data: created, error } = await supabase
     .from('submissions')
@@ -77,6 +95,20 @@ export async function createDraftSubmission(): Promise<string> {
     .single()
 
   if (error || !created) throw new Error(error?.message ?? 'Failed to create draft')
+
+  if (role === 'presenter' || role === 'mentor') {
+    const { error: seedErr } = await supabase.from('submission_authors').insert({
+      submission_id: created.id,
+      position: 1,
+      profile_id: user.id,
+      display_name: displayName,
+      email: (profile?.email ?? user.email ?? null)?.toLowerCase() ?? null,
+      is_presenter: role === 'presenter',
+      is_mentor: role === 'mentor',
+    })
+    if (seedErr) throw new Error(seedErr.message)
+  }
+
   return created.id
 }
 

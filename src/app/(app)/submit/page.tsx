@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import type { AuthorInput, SubmissionInput } from './actions'
 import { SubmitForm } from './submit-form'
-import type { FacultyOption } from './author-list'
+import type { FacultyOption } from './submit-authors'
 import type {
   PreferredPresentationType,
   SessionPreference,

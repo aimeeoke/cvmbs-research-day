@@ -46,6 +46,11 @@ yarn-error.log*
 # Regenerate the migration via `node scripts/load-faculty.mjs` when this changes.
 /CVMBS-Faculty.csv
 
+# Affiliations source-of-truth CSV.
+# Regenerate `src/lib/affiliations.generated.ts` via `node scripts/load-affiliations.mjs`
+# when this changes.
+/Affiliations.csv
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

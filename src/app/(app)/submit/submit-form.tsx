@@ -8,9 +8,15 @@ import type {
   SubmissionStatus,
 } from '@/lib/types/database'
 import {
-  AuthorList,
+  AffiliationsPicker,
+  CoauthorList,
+  CvmbsMentorSlot,
+  ExternalMentorSlot,
+  type CoauthorState,
   type FacultyOption,
-} from './author-list'
+  type MentorCvmbsState,
+  type MentorExternalState,
+} from './submit-authors'
 import {
   saveDraft,
   submitDraft,
@@ -30,6 +36,34 @@ type Props = {
   editingLocked: boolean
   finalizeDeadline: string | null
   isSubmitter: boolean
+}
+
+type PresenterFields = {
+  name: string
+  email: string
+  profile_id: string | null
+  faculty_id: string | null
+}
+
+type FormState = {
+  title: string
+  abstract: string
+  classification: string | null
+  department_id: string | null
+  program: string | null
+  affiliations: string[]
+  research_type: string | null
+  research_stage: string | null
+  funding: string | null
+  preferred_presentation_type: PreferredPresentationType | null
+  session_preference: SessionPreference | null
+  previously_presented: boolean | null
+  previous_format: 'Oral' | 'Poster' | null
+  presenter: PresenterFields
+  mentor_cvmbs_1: MentorCvmbsState
+  mentor_cvmbs_2: MentorCvmbsState
+  mentor_external: MentorExternalState
+  coauthors: CoauthorState[]
 }
 
 const CLASSIFICATION_OPTIONS = [
@@ -61,6 +95,11 @@ const RESEARCH_TYPES = [
 
 const RESEARCH_STAGES = ['Early', 'Advanced'] as const
 
+// Separator used to concatenate an "Other Mentor" name + affiliation into
+// submission_authors.display_name (there's no dedicated affiliation column).
+// Middle dot with spaces is effectively never in a real person's name.
+const OTHER_MENTOR_SEP = ' · '
+
 const RESEARCH_STAGE_HINT =
   'Early = undergrad, post-bacc, or graduate student / resident with ≤ 2 years in the research program. ' +
   'Advanced = completed prelims and/or more than 2 years of research experience.'
@@ -79,37 +118,204 @@ const SESSION_PREFS: { value: SessionPreference; label: string }[] = [
   { value: 'No preference', label: 'No preference' },
 ]
 
-export function SubmitForm(props: Props) {
-  const [state, setState] = useState<SubmissionInput>(props.initial)
-  const [affiliationsText, setAffiliationsText] = useState(
-    (props.initial.affiliations ?? []).join(', ')
+function deserialize(initial: SubmissionInput): FormState {
+  const authors = [...initial.authors].sort((a, b) => a.position - b.position)
+  const presenterRow = authors.find((a) => a.is_presenter)
+  const mentorRows = authors.filter((a) => a.is_mentor)
+  const coauthorRows = authors.filter((a) => !a.is_presenter && !a.is_mentor)
+
+  // Save order is [Other, cvmbs2, cvmbs1] (last mentor by position is Faculty
+  // Mentor 1). We split by flag/marker first, then fill CVMBS slots in reverse
+  // position order so cvmbs1 always ends up last in the byline.
+  const externalRow = mentorRows.find(
+    (m) => !m.faculty_id && (m.display_name ?? '').includes(OTHER_MENTOR_SEP)
   )
+  const cvmbsRows = mentorRows.filter((m) => m !== externalRow)
+  // Reverse so the highest-position CVMBS mentor becomes cvmbs1.
+  const [cvmbs1Row, cvmbs2Row] = [...cvmbsRows].reverse()
+
+  return {
+    title: initial.title,
+    abstract: initial.abstract,
+    classification: initial.classification,
+    department_id: initial.department_id,
+    program: initial.program,
+    affiliations: initial.affiliations,
+    research_type: initial.research_type,
+    research_stage: initial.research_stage,
+    funding: initial.funding,
+    preferred_presentation_type: initial.preferred_presentation_type,
+    session_preference: initial.session_preference,
+    previously_presented: initial.previously_presented,
+    previous_format: initial.previous_format,
+    presenter: {
+      name: presenterRow?.display_name ?? '',
+      email: presenterRow?.email ?? '',
+      profile_id: presenterRow?.profile_id ?? null,
+      faculty_id: presenterRow?.faculty_id ?? null,
+    },
+    mentor_cvmbs_1: {
+      mode: cvmbs1Row?.faculty_id ? 'picker' : 'not_listed',
+      faculty_id: cvmbs1Row?.faculty_id ?? null,
+      name: cvmbs1Row?.display_name ?? '',
+    },
+    mentor_cvmbs_2: {
+      mode: cvmbs2Row?.faculty_id ? 'picker' : 'not_listed',
+      faculty_id: cvmbs2Row?.faculty_id ?? null,
+      name: cvmbs2Row?.display_name ?? '',
+    },
+    mentor_external: splitExternalMentor(externalRow?.display_name ?? ''),
+    coauthors: coauthorRows.map((c, i) => ({
+      key: `co-load-${i}`,
+      name: c.display_name ?? '',
+    })),
+  }
+}
+
+function serializeAuthors(state: FormState): AuthorInput[] {
+  const authors: AuthorInput[] = []
+  let pos = 1
+  const push = (row: Omit<AuthorInput, 'position'>) => {
+    authors.push({ ...row, position: pos++ })
+  }
+
+  if (state.presenter.name.trim()) {
+    push({
+      profile_id: state.presenter.profile_id,
+      faculty_id: state.presenter.faculty_id,
+      display_name: state.presenter.name.trim(),
+      email: state.presenter.email.trim() || null,
+      is_presenter: true,
+      is_mentor: false,
+    })
+  }
+
+  for (const c of state.coauthors) {
+    if (c.name.trim()) {
+      push({
+        profile_id: null,
+        faculty_id: null,
+        display_name: c.name.trim(),
+        email: null,
+        is_presenter: false,
+        is_mentor: false,
+      })
+    }
+  }
+
+  // Mentor byline order: Other Mentor → Faculty Mentor 2 → Faculty Mentor 1
+  // (Faculty Mentor 1 ends up in the last byline position).
+  if (state.mentor_external.name.trim()) {
+    const name = state.mentor_external.name.trim()
+    const aff = state.mentor_external.affiliation.trim()
+    push({
+      profile_id: null,
+      faculty_id: null,
+      display_name: aff ? `${name}${OTHER_MENTOR_SEP}${aff}` : name,
+      email: null,
+      is_presenter: false,
+      is_mentor: true,
+    })
+  }
+  const cvmbsMentors = [state.mentor_cvmbs_2, state.mentor_cvmbs_1]
+  for (const m of cvmbsMentors) {
+    const hasName = m.name.trim().length > 0
+    const hasFaculty = m.mode === 'picker' && !!m.faculty_id
+    if (hasName || hasFaculty) {
+      push({
+        profile_id: null,
+        faculty_id: m.mode === 'picker' ? m.faculty_id : null,
+        display_name: m.name.trim() || null,
+        email: null,
+        is_presenter: false,
+        is_mentor: true,
+      })
+    }
+  }
+
+  return authors
+}
+
+function splitExternalMentor(raw: string): MentorExternalState {
+  const idx = raw.indexOf(OTHER_MENTOR_SEP)
+  if (idx === -1) return { name: raw, affiliation: '' }
+  return {
+    name: raw.slice(0, idx),
+    affiliation: raw.slice(idx + OTHER_MENTOR_SEP.length),
+  }
+}
+
+function computeBylineNames(state: FormState): string[] {
+  return [
+    state.presenter.name.trim(),
+    ...state.coauthors.map((c) => c.name.trim()),
+    state.mentor_external.name.trim(),
+    state.mentor_cvmbs_2.name.trim(),
+    state.mentor_cvmbs_1.name.trim(),
+  ].filter(Boolean)
+}
+
+function validate(state: FormState): string | null {
+  if (!state.title.trim()) return 'Add a title before submitting.'
+  if (!state.abstract.trim()) return 'Add the abstract body before submitting.'
+  if (!state.department_id && !state.program?.trim())
+    return 'Pick a Department or enter a Program in the Presenter section.'
+  if (!state.presenter.name.trim())
+    return 'Presenter name is required.'
+  if (!state.presenter.email.trim())
+    return 'Presenter email is required.'
+  if (!state.mentor_cvmbs_1.name.trim())
+    return 'Faculty Mentor 1 is required — pick a CVMBS faculty member or use "not listed" to type a name.'
+
+  const bylineLower = computeBylineNames(state).map((n) => n.toLowerCase())
+  const mentorNames = [
+    state.mentor_cvmbs_1.name.trim(),
+    state.mentor_cvmbs_2.name.trim(),
+    state.mentor_external.name.trim(),
+  ].filter(Boolean)
+  for (const mn of mentorNames) {
+    if (!bylineLower.includes(mn.toLowerCase())) {
+      return `Mentor "${mn}" isn't in the Authors byline. Add them to the Authors list or clear the Mentors slot.`
+    }
+  }
+  return null
+}
+
+export function SubmitForm(props: Props) {
+  const [state, setState] = useState<FormState>(() => deserialize(props.initial))
   const [status, setStatus] = useState<SubmissionStatus>(props.status)
   const [isPending, startTransition] = useTransition()
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
 
   const disabled = props.editingLocked || status === 'finalized' || status === 'withdrawn'
 
-  const patch = (p: Partial<SubmissionInput>) => setState((s) => ({ ...s, ...p }))
+  const patch = (p: Partial<FormState>) => setState((s) => ({ ...s, ...p }))
 
-  const setAffiliationsFromText = (raw: string) => {
-    setAffiliationsText(raw)
-    const parts = raw
-      .split(/[,\n]/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    patch({ affiliations: parts })
-  }
+  const toSubmissionInput = (s: FormState): SubmissionInput => ({
+    title: s.title,
+    abstract: s.abstract,
+    classification: s.classification,
+    department_id: s.department_id,
+    program: s.program,
+    research_type: s.research_type,
+    research_stage: s.research_stage,
+    funding: s.funding,
+    affiliations: s.affiliations,
+    preferred_presentation_type: s.preferred_presentation_type,
+    session_preference: s.session_preference,
+    previously_presented: s.previously_presented,
+    previous_format: s.previous_format,
+    authors: serializeAuthors(s),
+  })
 
-  const run = async (
+  const run = (
     fn: (id: string, input: SubmissionInput) => Promise<{ ok: true }>,
     nextStatus: SubmissionStatus,
     successText: string
   ) => {
-    setBanner(null)
     startTransition(async () => {
       try {
-        await fn(props.submissionId, state)
+        await fn(props.submissionId, toSubmissionInput(state))
         setStatus(nextStatus)
         setBanner({ tone: 'success', text: successText })
       } catch (e) {
@@ -121,26 +327,26 @@ export function SubmitForm(props: Props) {
     })
   }
 
-  const onSaveDraft = () =>
+  const onSaveDraft = () => {
+    setBanner(null)
     run(saveDraft, status === 'draft' ? 'draft' : status, 'Draft saved.')
+  }
 
   const onSubmit = () => {
-    if (!confirmFieldsFilled(state)) {
-      setBanner({
-        tone: 'error',
-        text: 'Please fill in title, abstract, department (or program), and at least one author before submitting.',
-      })
+    setBanner(null)
+    const err = validate(state)
+    if (err) {
+      setBanner({ tone: 'error', text: err })
       return
     }
     run(submitDraft, 'submitted', 'Submitted. You can keep editing until the finalize deadline.')
   }
 
   const onFinalize = () => {
-    if (!confirmFieldsFilled(state)) {
-      setBanner({
-        tone: 'error',
-        text: 'Please fill in the required fields before finalizing.',
-      })
+    setBanner(null)
+    const err = validate(state)
+    if (err) {
+      setBanner({ tone: 'error', text: err })
       return
     }
     if (
@@ -152,6 +358,9 @@ export function SubmitForm(props: Props) {
     run(finalizeSubmission, 'finalized', 'Submission finalized and locked.')
   }
 
+  const bylineNames = computeBylineNames(state)
+  const bylinePreview = bylineNames.join(', ')
+
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
       <StatusHeader
@@ -162,7 +371,7 @@ export function SubmitForm(props: Props) {
 
       {!props.isSubmitter && !disabled && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-          You're editing this abstract as a mentor or presenter — the changes save
+          You&apos;re editing this abstract as a mentor or presenter — the changes save
           against the submission owned by whoever originally created it.
         </div>
       )}
@@ -188,84 +397,51 @@ export function SubmitForm(props: Props) {
         </div>
       )}
 
-      <Section title="Research">
-        <Field label="Title" required>
-          <input
-            type="text"
-            value={state.title}
-            disabled={disabled}
-            onChange={(e) => patch({ title: e.target.value })}
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Abstract" required hint="Plain text. Aim for ~250–500 words.">
-          <textarea
-            value={state.abstract}
-            disabled={disabled}
-            onChange={(e) => patch({ abstract: e.target.value })}
-            rows={10}
-            className={inputClass}
-          />
-        </Field>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="Research type">
-            <select
-              value={state.research_type ?? ''}
-              disabled={disabled}
-              onChange={(e) => patch({ research_type: e.target.value || null })}
-              className={inputClass}
-            >
-              <option value="">Select...</option>
-              {RESEARCH_TYPES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Research stage" hint={RESEARCH_STAGE_HINT}>
-            <select
-              value={state.research_stage ?? ''}
-              disabled={disabled}
-              onChange={(e) => patch({ research_stage: e.target.value || null })}
-              className={inputClass}
-            >
-              <option value="">Select...</option>
-              {RESEARCH_STAGES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        <Field label="Funding acknowledgement" hint="Grants, foundations, or sponsors to credit.">
-          <input
-            type="text"
-            value={state.funding ?? ''}
-            disabled={disabled}
-            onChange={(e) => patch({ funding: e.target.value || null })}
-            className={inputClass}
-          />
-        </Field>
-        <Field
-          label="Affiliations"
-          hint="Centers or programs, comma-separated (e.g. CVID, PREP, ARBL)."
-        >
-          <input
-            type="text"
-            value={affiliationsText}
-            disabled={disabled}
-            onChange={(e) => setAffiliationsFromText(e.target.value)}
-            className={inputClass}
-          />
-        </Field>
-      </Section>
-
       <Section
         title="Presenter"
-        hint="If the presenter isn't in one of the four CVMBS departments (e.g. a college-wide program or an undergraduate), leave Department blank and enter the program name instead."
+        hint="Who's actually presenting on the day. Drives assignments and program credit."
       >
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field
+            label="Full name"
+            required
+            hint="Include middle initial only if used professionally."
+          >
+            <input
+              type="text"
+              value={state.presenter.name}
+              disabled={disabled}
+              onChange={(e) =>
+                patch({
+                  presenter: {
+                    ...state.presenter,
+                    name: e.target.value,
+                    profile_id: null,
+                    faculty_id: null,
+                  },
+                })
+              }
+              placeholder="e.g. Jane A. Doe"
+              className={inputClass}
+            />
+          </Field>
+          <Field
+            label="Email"
+            required
+            hint="Used to notify the presenter of format and slot assignments."
+          >
+            <input
+              type="email"
+              value={state.presenter.email}
+              disabled={disabled}
+              onChange={(e) =>
+                patch({ presenter: { ...state.presenter, email: e.target.value } })
+              }
+              placeholder="presenter@colostate.edu"
+              className={inputClass}
+            />
+          </Field>
+        </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Classification">
             <select
@@ -274,7 +450,7 @@ export function SubmitForm(props: Props) {
               onChange={(e) => patch({ classification: e.target.value || null })}
               className={inputClass}
             >
-              <option value="">Select...</option>
+              <option value="">Select…</option>
               {CLASSIFICATION_OPTIONS.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -282,14 +458,17 @@ export function SubmitForm(props: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Department">
+          <Field
+            label="Department"
+            hint="Leave blank if the presenter isn't in a CVMBS department."
+          >
             <select
               value={state.department_id ?? ''}
               disabled={disabled}
               onChange={(e) => patch({ department_id: e.target.value || null })}
               className={inputClass}
             >
-              <option value="">Select...</option>
+              <option value="">Select…</option>
               {props.departments.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -310,20 +489,155 @@ export function SubmitForm(props: Props) {
             className={inputClass}
           />
         </Field>
+        <Field
+          label="Affiliations"
+          hint="Centers, institutes, labs, programs, or training grants that support this work. Pick all that apply."
+        >
+          <AffiliationsPicker
+            value={state.affiliations}
+            onChange={(next) => patch({ affiliations: next })}
+            disabled={disabled}
+          />
+        </Field>
       </Section>
 
       <Section
-        title="Authors"
-        hint="Add every author in citation order. Include your mentor(s) in this list — traditionally they appear in the last position. External coauthors can be added by name only."
+        title="Mentors"
+        hint="At least one faculty mentor is required. You can also add a second faculty mentor and one other mentor. Do not include degrees or affiliations in the name field."
       >
-        <AuthorList
-          value={state.authors}
-          onChange={(next) =>
-            patch({ authors: next.map((a, i) => ({ ...a, position: i + 1 })) })
+        <CvmbsMentorSlot
+          label="Faculty Mentor 1"
+          required
+          value={state.mentor_cvmbs_1}
+          onChange={(p) =>
+            patch({ mentor_cvmbs_1: { ...state.mentor_cvmbs_1, ...p } })
           }
           facultyOptions={props.facultyOptions}
           disabled={disabled}
         />
+        <CvmbsMentorSlot
+          label="Faculty Mentor 2 (optional)"
+          value={state.mentor_cvmbs_2}
+          onChange={(p) =>
+            patch({ mentor_cvmbs_2: { ...state.mentor_cvmbs_2, ...p } })
+          }
+          facultyOptions={props.facultyOptions}
+          disabled={disabled}
+        />
+        <ExternalMentorSlot
+          value={state.mentor_external}
+          onChange={(p) =>
+            patch({ mentor_external: { ...state.mentor_external, ...p } })
+          }
+          disabled={disabled}
+        />
+      </Section>
+
+      <Section title="Research classification">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Research type">
+            <select
+              value={state.research_type ?? ''}
+              disabled={disabled}
+              onChange={(e) => patch({ research_type: e.target.value || null })}
+              className={inputClass}
+            >
+              <option value="">Select…</option>
+              {RESEARCH_TYPES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Research stage" hint={RESEARCH_STAGE_HINT}>
+            <select
+              value={state.research_stage ?? ''}
+              disabled={disabled}
+              onChange={(e) => patch({ research_stage: e.target.value || null })}
+              className={inputClass}
+            >
+              <option value="">Select…</option>
+              {RESEARCH_STAGES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="Title">
+        <Field label="Abstract title" required>
+          <input
+            type="text"
+            value={state.title}
+            disabled={disabled}
+            onChange={(e) => patch({ title: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+      </Section>
+
+      <Section
+        title="Authors"
+        hint="Full byline in program order: presenter first, additional coauthors next, then any other mentor, then the faculty mentor(s) — with Faculty Mentor 1 in the last position."
+      >
+        <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+            Byline preview
+          </div>
+          <div className="text-sm text-gray-800">
+            {bylinePreview || (
+              <span className="italic text-gray-500">
+                Fill Presenter and Mentors above to build the byline.
+              </span>
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="text-sm font-medium text-gray-700 mb-2">
+            Additional coauthors
+          </div>
+          <CoauthorList
+            value={state.coauthors}
+            onChange={(next) => patch({ coauthors: next })}
+            disabled={disabled}
+          />
+          <p className="mt-2 text-xs text-gray-500">
+            Anyone besides the presenter and mentors — collaborators, lab members,
+            external coauthors. Order matters; they&apos;ll appear between the presenter
+            and the mentor(s) in the byline.
+          </p>
+        </div>
+      </Section>
+
+      <Section title="Abstract">
+        <Field label="Abstract body" required hint="Plain text. Aim for ~250–500 words.">
+          <textarea
+            value={state.abstract}
+            disabled={disabled}
+            onChange={(e) => patch({ abstract: e.target.value })}
+            rows={10}
+            className={inputClass}
+          />
+        </Field>
+      </Section>
+
+      <Section title="Funding">
+        <Field
+          label="Funding acknowledgement"
+          hint="Grants, foundations, or sponsors to credit."
+        >
+          <input
+            type="text"
+            value={state.funding ?? ''}
+            disabled={disabled}
+            onChange={(e) => patch({ funding: e.target.value || null })}
+            className={inputClass}
+          />
+        </Field>
       </Section>
 
       <Section title="Preferences">
@@ -443,17 +757,6 @@ export function SubmitForm(props: Props) {
       )}
     </div>
   )
-}
-
-function confirmFieldsFilled(s: SubmissionInput) {
-  if (!s.title.trim()) return false
-  if (!s.abstract.trim()) return false
-  // Presenter must be in a CVMBS department OR name a program.
-  if (!s.department_id && !s.program?.trim()) return false
-  const nonEmpty = s.authors.filter(
-    (a) => a.profile_id || a.faculty_id || (a.display_name && a.display_name.trim())
-  )
-  return nonEmpty.length > 0
 }
 
 function StatusHeader({

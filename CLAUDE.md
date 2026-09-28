@@ -141,6 +141,32 @@ A unified conference management platform for Colorado State University's College
       Re-run the script anytime the CSV changes; the SQL is idempotent
       (only refreshes name/dept/is_active, preserves Green Labs flags
       and profile_id links).
+- [x] **Submit form reorg (Sep 28, 2026 continued).** Sections reordered
+      into a more editorial flow: Presenter (name + email + classification +
+      dept-or-program + affiliations) → Mentors (**Faculty Mentor 1**
+      required with faculty picker / "not listed" toggle, **Faculty Mentor 2**
+      optional same pattern, one **Other Mentor** slot with name + optional
+      affiliation) → Research type/stage → Title → Authors (comma-separated
+      byline preview + coauthors list) → Abstract → Funding → Preferences.
+      Byline order is: presenter → coauthors → Other Mentor → Faculty
+      Mentor 2 → Faculty Mentor 1 (last position). Other Mentor affiliation
+      is encoded into `submission_authors.display_name` with a ` · ` (middle
+      dot) separator — no schema change; byline preview only shows the name
+      portion. Instructions warn "Do not include degrees or affiliations in
+      the name field." State split into `presenter` / `mentor_*` slots /
+      `coauthors[]` and serialized back to the existing `submission_authors`
+      shape on save. Submit is blocked until Faculty Mentor 1 is filled and
+      every mentor named appears in the byline. Files: `submit-form.tsx`
+      (rewritten), new `submit-authors.tsx` (`FacultyPicker` +
+      `CvmbsMentorSlot` + `ExternalMentorSlot` + `CoauthorList` +
+      `AffiliationsPicker`), old `author-list.tsx` deleted.
+- [x] **Affiliations picker (Sep 28, 2026).** Presenter "Affiliations"
+      field is now a grouped checkbox picker (Center · Institute ·
+      Laboratory · Program · Training Grant) built from `Affiliations.csv`
+      (32 items). CSV is gitignored; run `node scripts/load-affiliations.mjs`
+      to regenerate `src/lib/affiliations.generated.ts` when the CSV
+      changes. Legacy free-text values from earlier drafts still round-trip
+      as amber chips so nothing gets silently dropped.
 - [ ] Author enhancements (deferred):
   - [ ] Capture Green Labs Ambassador status *per author* on the submit form.
   - [ ] Admin name-canonicalization for student misspellings.

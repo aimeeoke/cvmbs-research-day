@@ -42,6 +42,10 @@ yarn-error.log*
 # Personal Claude Code overrides (not shared)
 .claude/settings.local.json
 
+# Faculty roster (source-of-truth Excel/CSV, contains directory PII).
+# Regenerate the migration via `node scripts/load-faculty.mjs` when this changes.
+/CVMBS-Faculty.csv
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

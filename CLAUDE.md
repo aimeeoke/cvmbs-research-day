@@ -123,8 +123,13 @@ A unified conference management platform for Colorado State University's College
       plan lives in the Sep 25 chat transcript.
 - [x] Updated Supabase **Confirm signup** template (Sep 28, 2026) so
       new signups get the OTP code instead of the default link.
-- [ ] **Task 6 — Settings.** Password set/change + role-request form that
-      writes to the `role_requests` table.
+- [x] **Task 6 — Settings.** Sep 28, 2026 — `/settings` now has a
+      client-side password set/change form (uses `auth.updateUser`), a
+      role-request form gated on `role_requests` RLS (mentor/judge/
+      admin/volunteer, dedupes against current + pending), and a list
+      of your prior requests with status pills. No self-cancel yet
+      because RLS restricts delete to admins — punt to a schema tweak
+      later if we need it.
 - [x] **Task 7 — Public content.** Populated `/winners-2026` from
       vetmedbiosci.colostate.edu/research/research-day (Sep 28, 2026).
       `/about` and `/committee` (merged) are done.

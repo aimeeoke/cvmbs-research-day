@@ -29,7 +29,9 @@ import {
   finalizeSubmission,
   type AuthorInput,
   type SubmissionInput,
+  type UserAmbassadorCert,
 } from './actions'
+import { AmbassadorUpload } from './ambassador-upload'
 
 type Department = { id: string; name: string; short_name?: string | null }
 
@@ -44,6 +46,14 @@ type Props = {
   isSubmitter: boolean
   /** Admin read-only view — locks the form, hides mentor/edit banners, swaps header. */
   adminView?: boolean
+  // Green Labs Ambassador cert for the SIGNED-IN USER (not the presenter on
+  // the abstract). Passed from the server page after querying certifications
+  // by profile_id or email. Null if the user isn't (yet) an ambassador.
+  currentUser?: {
+    profileId: string
+    email: string
+  } | null
+  currentUserAmbassadorCert?: UserAmbassadorCert | null
 }
 
 type PresenterFields = {
@@ -554,6 +564,14 @@ export function SubmitForm(props: Props) {
             disabled={disabled}
           />
         </Field>
+        {props.currentUser && !props.adminView && (
+          <AmbassadorUpload
+            userProfileId={props.currentUser.profileId}
+            userEmail={props.currentUser.email}
+            initialCert={props.currentUserAmbassadorCert ?? null}
+            disabled={disabled}
+          />
+        )}
       </Section>
 
       <Section

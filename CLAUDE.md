@@ -265,6 +265,17 @@ A unified conference management platform for Colorado State University's College
       Supersedes the pre-existing boolean flags on `profiles` and
       `faculty` — those stay for now but new code should read from
       this table.
+- [x] **Ambassador cert upload on submit form (Sep 29, 2026).** New
+      `AmbassadorUpload` widget in the Presenter section: signed-in
+      user only, four states (pre-loaded from CSV / uploaded+verified
+      / uploaded+pending / none), file → Storage bucket → server action
+      writes the cert row. Replace flow deletes the old PDF before
+      uploading the new one. Remove flow deletes both row and PDF
+      (blocked once admin verifies). Also shipped a small RLS
+      addendum (`2026-09-29_certifications_self_manage.sql`) letting
+      the uploader manage their own row while `verified_at IS NULL`.
+      No coauthor/mentor upload flow yet — that needs per-author email
+      capture first.
 
 ### Rich text pattern (Sep 29, 2026)
 Reusable across projects — the pattern is: (a) TipTap-backed editor with a
@@ -341,6 +352,7 @@ Applied here for Green Labs certification PDFs.
 7. `supabase/migrations/2026-09-29_author_affiliation.sql` — Sep 29, 2026 — per-author department_id + affiliation
 8. `supabase/migrations/2026-09-29_certifications_bucket.sql` — Sep 29, 2026 — certifications Storage bucket + RLS
 9. `supabase/migrations/2026-09-29_certifications_table.sql` — Sep 29, 2026 — certifications DB table (backs the bucket with typed metadata)
+10. `supabase/migrations/2026-09-29_certifications_self_manage.sql` — Sep 29, 2026 — RLS addendum: uploader can manage own unverified cert
 
 ### Deploy
 - [x] **Sep 28, 2026 — Vercel cutover done.** `researchday.vercel.app`

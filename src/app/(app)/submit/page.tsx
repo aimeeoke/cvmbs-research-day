@@ -1,7 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import type { AuthorInput, SubmissionInput } from './actions'
+import type {
+  AuthorInput,
+  SubmissionInput,
+  UserAmbassadorCert,
+} from './actions'
 import { SubmitForm } from './submit-form'
 import type { FacultyOption } from './submit-authors'
 import type {
@@ -87,6 +91,36 @@ export default async function SubmitPage({
     }
   })
 
+  // Signed-in user's Green Labs Ambassador cert (if any). Match by
+  // profile_id OR by email — the CSV loader keys pre-loaded rows by email
+  // without a profile_id, so an email match picks those up. Ordered
+  // pre-verified first (source='csv_import' typically arrives verified),
+  // then most recently uploaded.
+  const userEmailLc = (user.email ?? '').toLowerCase()
+  const { data: certRows } = await supabase
+    .from('certifications')
+    .select('id, source, storage_path, verified_at, valid_through, uploaded_at, profile_id, email')
+    .eq('kind', 'ambassador')
+    .or(
+      userEmailLc
+        ? `profile_id.eq.${user.id},email.eq.${userEmailLc}`
+        : `profile_id.eq.${user.id}`
+    )
+    .order('verified_at', { ascending: false, nullsFirst: false })
+    .order('uploaded_at', { ascending: false })
+    .limit(1)
+
+  const currentUserAmbassadorCert: UserAmbassadorCert | null = certRows?.[0]
+    ? {
+        id: certRows[0].id as string,
+        source: certRows[0].source as UserAmbassadorCert['source'],
+        storage_path: (certRows[0].storage_path as string | null) ?? null,
+        verified_at: (certRows[0].verified_at as string | null) ?? null,
+        valid_through: (certRows[0].valid_through as string | null) ?? null,
+        uploaded_at: certRows[0].uploaded_at as string,
+      }
+    : null
+
   const now = Date.now()
   const finalizeDeadline = event.finalize_deadline_at
     ? new Date(event.finalize_deadline_at).getTime()
@@ -158,6 +192,12 @@ export default async function SubmitPage({
       editingLocked={editingLocked}
       finalizeDeadline={event.finalize_deadline_at}
       isSubmitter={submission.submitter_id === user.id}
+      currentUser={
+        user.email
+          ? { profileId: user.id, email: user.email }
+          : null
+      }
+      currentUserAmbassadorCert={currentUserAmbassadorCert}
     />
   )
 }

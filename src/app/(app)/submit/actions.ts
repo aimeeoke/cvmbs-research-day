@@ -282,3 +282,135 @@ export async function finalizeSubmission(submissionId: string, input: Submission
   revalidatePath(`/submit`)
   return { ok: true as const }
 }
+
+// -------- Green Labs Ambassador cert --------
+// These actions belong here (rather than a separate certifications module)
+// because the Presenter section of the submit form is the only place that
+// currently calls them. If we grow more cert workflows (per-author uploads,
+// admin verification tool), pull them into src/lib/certifications.ts.
+
+export type UserAmbassadorCert = {
+  id: string
+  source: 'csv_import' | 'user_upload' | 'admin_manual'
+  storage_path: string | null
+  verified_at: string | null
+  valid_through: string | null
+  uploaded_at: string
+}
+
+/**
+ * Record (or replace) the signed-in user's Green Labs Ambassador cert.
+ * The file is already uploaded to Storage via uploadCertification() — this
+ * action just writes the metadata row and cleans up any prior file.
+ *
+ * Returns the new/updated row so the client can update its UI without a
+ * refetch.
+ */
+export async function recordAmbassadorCert(args: {
+  storagePath: string
+}): Promise<{ cert: UserAmbassadorCert }> {
+  const { supabase, user } = await requireUser()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('email, first_name, last_name')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!profile?.email) {
+    throw new Error('Your profile is missing an email — cannot record cert.')
+  }
+
+  // Replace any existing user_upload cert for this user (one at a time).
+  // We look up by uploaded_by so we don't clobber a CSV row that happens
+  // to share this user's email — a CSV row's source is 'csv_import' and
+  // it wouldn't have this user as uploaded_by anyway.
+  const { data: existing } = await supabase
+    .from('certifications')
+    .select('id, storage_path')
+    .eq('kind', 'ambassador')
+    .eq('source', 'user_upload')
+    .eq('uploaded_by', user.id)
+    .maybeSingle()
+
+  if (existing) {
+    // Delete the old PDF from storage so we don't leak orphans.
+    if (existing.storage_path && existing.storage_path !== args.storagePath) {
+      await supabase.storage.from('certifications').remove([existing.storage_path])
+    }
+    const { data: updated, error } = await supabase
+      .from('certifications')
+      .update({
+        storage_path: args.storagePath,
+        // Re-uploading resets verification — admin must re-approve.
+        verified_at: null,
+        verified_by: null,
+        uploaded_by: user.id,
+        uploaded_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+      .select('id, source, storage_path, verified_at, valid_through, uploaded_at')
+      .single()
+    if (error) throw new Error(error.message)
+    revalidatePath('/submit')
+    revalidatePath('/settings')
+    return { cert: updated as UserAmbassadorCert }
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('certifications')
+    .insert({
+      kind: 'ambassador',
+      profile_id: user.id,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
+      email: profile.email.toLowerCase(),
+      source: 'user_upload',
+      storage_path: args.storagePath,
+      uploaded_by: user.id,
+    })
+    .select('id, source, storage_path, verified_at, valid_through, uploaded_at')
+    .single()
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/submit')
+  revalidatePath('/settings')
+  return { cert: inserted as UserAmbassadorCert }
+}
+
+/**
+ * Remove the signed-in user's unverified ambassador upload. Deletes the
+ * storage file too. Only works on rows the user uploaded and admin hasn't
+ * yet verified — RLS enforces both. No-op if there's nothing to remove.
+ */
+export async function deleteAmbassadorCert(): Promise<{ ok: true }> {
+  const { supabase, user } = await requireUser()
+
+  const { data: existing } = await supabase
+    .from('certifications')
+    .select('id, storage_path, verified_at')
+    .eq('kind', 'ambassador')
+    .eq('source', 'user_upload')
+    .eq('uploaded_by', user.id)
+    .maybeSingle()
+
+  if (!existing) return { ok: true }
+  if (existing.verified_at) {
+    throw new Error(
+      'This certification has been verified by an admin — contact them to remove it.'
+    )
+  }
+
+  if (existing.storage_path) {
+    await supabase.storage.from('certifications').remove([existing.storage_path])
+  }
+  const { error } = await supabase
+    .from('certifications')
+    .delete()
+    .eq('id', existing.id)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/submit')
+  revalidatePath('/settings')
+  return { ok: true }
+}

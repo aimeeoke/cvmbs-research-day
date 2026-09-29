@@ -130,7 +130,7 @@ export function AuthorAffiliationPicker({
               disabled={disabled}
               className={`${chipBase} ${mode === 'program' ? active : idle}`}
             >
-              Other CVMBS program
+              Other CSU Department or Program
             </button>
             <button
               type="button"
@@ -141,7 +141,7 @@ export function AuthorAffiliationPicker({
               disabled={disabled}
               className={`${chipBase} ${mode === 'external' ? active : idle}`}
             >
-              Non-CVMBS
+              Non-CSU
             </button>
           </>
         )}
@@ -168,7 +168,7 @@ export function AuthorAffiliationPicker({
           onChange={(e) => onChange({ affiliation: e.target.value })}
           placeholder={
             mode === 'program'
-              ? 'e.g. Cell & Molecular Biology, DVM, Undergraduate program'
+              ? 'e.g. Cell & Molecular Biology, Chemistry, DVM, Undergraduate program'
               : 'e.g. University of Colorado Boulder, CU Anschutz'
           }
           className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"

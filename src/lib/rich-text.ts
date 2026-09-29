@@ -15,45 +15,55 @@
  * for occasional emphasis. Everything else (headings, lists, links, images,
  * colors, fonts) is either style noise or a security risk — kept out on purpose.
  *
+ * Sanitizer choice: `sanitize-html` (not DOMPurify / isomorphic-dompurify).
+ * DOMPurify's Node build pulls in jsdom, and jsdom v25+ has an ESM subdep
+ * (@exodus/bytes) that breaks Vercel's serverless runtime with a CJS/ESM
+ * require() error. sanitize-html is pure-Node, works in both server and
+ * client bundles, and has no such landmine.
+ *
  * If you paste this pattern into another project, the two files you need are
  * this one plus src/components/rich-text-editor.tsx (and rich-text-view.tsx if
  * you display the content anywhere). Storage is a plain TEXT column.
  */
 
-import DOMPurify from 'isomorphic-dompurify'
+import sanitizeHtml from 'sanitize-html'
 
 /**
  * HTML tags allowed in stored rich text. Kept intentionally minimal — see
- * module header. DOMPurify drops anything not on this list on save AND render.
+ * module header. sanitize-html drops anything not on this list on save AND
+ * render.
  */
 export const RICH_TEXT_ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'sup', 'sub'] as const
 
-/**
- * No HTML attributes are allowed — this keeps out `style`, `class`, `href`,
- * event handlers, etc. If we ever need e.g. `dir="rtl"` on a paragraph, extend
- * this list explicitly and audit for injection risk.
- */
-export const RICH_TEXT_ALLOWED_ATTRS: readonly string[] = []
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [...RICH_TEXT_ALLOWED_TAGS],
+  // No attributes on any tag — keeps out style, class, href, event handlers.
+  // If you ever need e.g. `dir="rtl"` on a paragraph, extend this explicitly
+  // and audit for injection risk.
+  allowedAttributes: {},
+  disallowedTagsMode: 'discard',
+  // Don't try to auto-close broken tags — reject strange HTML rather than
+  // silently reshape it. If TipTap wrote it, it's already well-formed.
+  parseStyleAttributes: false,
+}
 
 /**
- * Run raw HTML through DOMPurify with our allowlist. Safe to call on both
+ * Run raw HTML through sanitize-html with our allowlist. Safe to call on both
  * server (save) and client (render).
  *
  * The empty-string check is a small perf win: TipTap emits '' when the editor
- * is fully empty, and there's no reason to boot DOMPurify for that.
+ * is fully empty, and there's no reason to spin up the sanitizer for that.
  */
 export function sanitizeRichTextHtml(html: string | null | undefined): string {
   if (!html) return ''
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS],
-    ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTRS],
-    KEEP_CONTENT: true,
-  })
+  return sanitizeHtml(html, SANITIZE_OPTIONS)
 }
 
 /**
  * TipTap treats an empty editor as `<p></p>`. Plain `!html.trim()` won't
  * catch that — use this helper anywhere you'd have written `!value.trim()`.
+ *
+ * Regex-only so it stays lightweight in the client bundle.
  */
 export function richTextIsEmpty(html: string | null | undefined): boolean {
   if (!html) return true
@@ -67,14 +77,19 @@ export function richTextIsEmpty(html: string | null | undefined): boolean {
  * text content — "E. coli" comes out as "E. coli", "H₂O" as "H₂O" if the
  * user typed the Unicode subscript, or "H2O" if they used the sub button).
  *
- * Uses DOMPurify with an empty tag list to strip everything but text nodes.
+ * Regex-only, no sanitizer dependency — safe for use in tight client-side
+ * loops (e.g. table filters that re-run on every keystroke).
  */
 export function richTextToPlainText(html: string | null | undefined): string {
   if (!html) return ''
-  const text = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [],
-    KEEP_CONTENT: true,
-  })
+  const text = html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
   return text.replace(/\s+/g, ' ').trim()
 }
 

@@ -228,9 +228,17 @@ A unified conference management platform for Colorado State University's College
 
 ### Rich text pattern (Sep 29, 2026)
 Reusable across projects — the pattern is: (a) TipTap-backed editor with a
-tiny whitelist of marks, (b) DOMPurify sanitizer running on both save AND
-render, (c) plain TEXT column in Postgres for storage, (d) helpers for
+tiny whitelist of marks, (b) `sanitize-html` sanitizer running on both save
+AND render, (c) plain TEXT column in Postgres for storage, (d) helpers for
 "is empty" and "extract plain text" so search / char counts still work.
+
+**Do NOT use `isomorphic-dompurify` on Vercel.** Its Node build pulls in
+`jsdom` v25+ which has an ESM subdep (`@exodus/bytes/encoding-lite.js`)
+that breaks `require()` in the Vercel serverless runtime with a
+`ERR_REQUIRE_ESM` error. Local `next build` misses this because it uses a
+different code path. We shipped that landmine on Sep 29 morning and had
+to swap to `sanitize-html` (pure Node, no jsdom, no ESM/CJS problem)
+that afternoon. Learned the hard way — keep the pattern on sanitize-html.
 
 - **Source of truth:** `src/lib/rich-text.ts` — allowed tags list,
   `sanitizeRichTextHtml()`, `richTextIsEmpty()`, `richTextToPlainText()`.
@@ -254,7 +262,7 @@ render, (c) plain TEXT column in Postgres for storage, (d) helpers for
   this so the user never sees raw `<em>` in a UI string.
 - **Packages:** `@tiptap/react @tiptap/starter-kit
   @tiptap/extension-superscript @tiptap/extension-subscript
-  isomorphic-dompurify` (v3.31.x TipTap, works with React 19).
+  sanitize-html @types/sanitize-html` (v3.31.x TipTap, works with React 19).
 - **CSS:** the `.prose-abstract` block in `src/app/globals.css` restores
   italic/sup/sub styling that Tailwind Preflight would otherwise flatten.
   Any read-only view needs this class (RichTextView applies it

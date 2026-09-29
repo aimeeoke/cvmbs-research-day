@@ -14,20 +14,168 @@ export type FacultyOption = {
   green_labs_certified: boolean
 }
 
+// Per-author affiliation. Either department_id (CVMBS dept UUID) OR affiliation
+// (free text for a CVMBS-adjacent program or an external institution). Both
+// can be empty. Used by CoauthorState / MentorExternalState / MentorCvmbsState
+// (not-listed mode) so points can be attributed to the right department and
+// same-named people are disambiguated.
+export type AuthorAffiliationState = {
+  department_id: string | null
+  affiliation: string
+}
+
+export type DepartmentOption = {
+  id: string
+  name: string
+  short_name?: string | null
+}
+
 export type MentorCvmbsState = {
   mode: 'picker' | 'not_listed'
   faculty_id: string | null
   name: string
+  // Only used in not_listed mode — dept picker for a CVMBS person who isn't
+  // yet in the faculty roster. Ignored when linked via the picker (department
+  // comes from the linked faculty row).
+  department_id: string | null
 }
 
 export type MentorExternalState = {
   name: string
+  department_id: string | null
   affiliation: string
 }
 
 export type CoauthorState = {
   key: string
   name: string
+  department_id: string | null
+  affiliation: string
+}
+
+/**
+ * Per-author affiliation picker. Renders four CVMBS department chips plus
+ * "Other CVMBS program" and "Non-CVMBS" buttons that reveal a text input.
+ *
+ * Storage is minimal — either department_id is set (CVMBS dept) or
+ * affiliation is set (free text). The 'program' vs 'external' distinction
+ * is only a UX affordance (different placeholder text); both persist to the
+ * same `affiliation` column. Points calc can classify later by matching the
+ * free text against a known list of programs.
+ *
+ * cvmbsOnly={true} hides the two "Other" buttons — used from the CVMBS
+ * Mentor "Not listed" mode, where the person is by definition CVMBS.
+ */
+export function AuthorAffiliationPicker({
+  value,
+  onChange,
+  departments,
+  disabled,
+  cvmbsOnly = false,
+  compact = false,
+}: {
+  value: AuthorAffiliationState
+  onChange: (patch: Partial<AuthorAffiliationState>) => void
+  departments: DepartmentOption[]
+  disabled?: boolean
+  cvmbsOnly?: boolean
+  /** Slimmer chips + tighter spacing when packed inside a coauthor row. */
+  compact?: boolean
+}) {
+  type Mode = 'none' | 'dept' | 'program' | 'external'
+  const initialMode: Mode = value.department_id
+    ? 'dept'
+    : value.affiliation
+      ? 'external'
+      : 'none'
+  const [mode, setMode] = useState<Mode>(initialMode)
+
+  const chipBase = compact
+    ? 'text-[11px] px-2 py-0.5 rounded-full border transition-colors'
+    : 'text-xs px-2.5 py-1 rounded-full border transition-colors'
+  const active = 'bg-[#1E4D2B] text-white border-[#1E4D2B]'
+  const idle =
+    'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 disabled:opacity-50'
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap gap-1">
+        {departments.map((d) => {
+          const isActive =
+            mode === 'dept' && value.department_id === d.id
+          return (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => {
+                setMode('dept')
+                onChange({ department_id: d.id, affiliation: '' })
+              }}
+              disabled={disabled}
+              className={`${chipBase} ${isActive ? active : idle}`}
+              title={d.name}
+            >
+              {d.short_name ?? d.name}
+            </button>
+          )
+        })}
+        {!cvmbsOnly && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('program')
+                onChange({ department_id: null })
+              }}
+              disabled={disabled}
+              className={`${chipBase} ${mode === 'program' ? active : idle}`}
+            >
+              Other CVMBS program
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('external')
+                onChange({ department_id: null })
+              }}
+              disabled={disabled}
+              className={`${chipBase} ${mode === 'external' ? active : idle}`}
+            >
+              Non-CVMBS
+            </button>
+          </>
+        )}
+        {mode !== 'none' && (
+          <button
+            type="button"
+            onClick={() => {
+              setMode('none')
+              onChange({ department_id: null, affiliation: '' })
+            }}
+            disabled={disabled}
+            className={`${chipBase} border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300`}
+            title="Clear affiliation"
+          >
+            clear
+          </button>
+        )}
+      </div>
+      {(mode === 'program' || mode === 'external') && (
+        <input
+          type="text"
+          value={value.affiliation}
+          disabled={disabled}
+          onChange={(e) => onChange({ affiliation: e.target.value })}
+          placeholder={
+            mode === 'program'
+              ? 'e.g. Cell & Molecular Biology, DVM, Undergraduate program'
+              : 'e.g. University of Colorado Boulder, CU Anschutz'
+          }
+          className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
+        />
+      )}
+    </div>
+  )
 }
 
 function FacultyPicker({
@@ -100,14 +248,9 @@ function FacultyPicker({
           <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#1E4D2B] text-white font-medium">
             Linked · {linkedFaculty.department_name ?? 'CVMBS Faculty'}
           </span>
-          <button
-            type="button"
-            onClick={() => onChange({ faculty_id: null })}
-            disabled={disabled}
-            className="text-gray-500 hover:text-gray-700 underline"
-          >
-            unlink
-          </button>
+          <span className="text-gray-500">
+            Wrong person? Use the &ldquo;Not listed&rdquo; toggle above.
+          </span>
         </div>
       )}
     </div>
@@ -120,6 +263,7 @@ export function CvmbsMentorSlot({
   value,
   onChange,
   facultyOptions,
+  departments,
   disabled,
 }: {
   label: string
@@ -127,6 +271,7 @@ export function CvmbsMentorSlot({
   value: MentorCvmbsState
   onChange: (patch: Partial<MentorCvmbsState>) => void
   facultyOptions: FacultyOption[]
+  departments: DepartmentOption[]
   disabled?: boolean
 }) {
   return (
@@ -173,14 +318,28 @@ export function CvmbsMentorSlot({
           placeholder="Search CVMBS faculty…"
         />
       ) : (
-        <input
-          type="text"
-          value={value.name}
-          disabled={disabled}
-          onChange={(e) => onChange({ name: e.target.value, faculty_id: null })}
-          placeholder="Full name (e.g. Dr. Jane A. Doe)"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
-        />
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={value.name}
+            disabled={disabled}
+            onChange={(e) => onChange({ name: e.target.value, faculty_id: null })}
+            placeholder="Full name (e.g. Dr. Jane A. Doe)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
+          />
+          <div>
+            <div className="text-xs font-medium text-gray-600 mb-1">
+              Department
+            </div>
+            <AuthorAffiliationPicker
+              value={{ department_id: value.department_id, affiliation: '' }}
+              onChange={(p) => onChange({ department_id: p.department_id ?? null })}
+              departments={departments}
+              disabled={disabled}
+              cvmbsOnly
+            />
+          </div>
+        </div>
       )}
     </div>
   )
@@ -189,10 +348,12 @@ export function CvmbsMentorSlot({
 export function ExternalMentorSlot({
   value,
   onChange,
+  departments,
   disabled,
 }: {
   value: MentorExternalState
   onChange: (patch: Partial<MentorExternalState>) => void
+  departments: DepartmentOption[]
   disabled?: boolean
 }) {
   return (
@@ -201,28 +362,35 @@ export function ExternalMentorSlot({
         Other Mentor{' '}
         <span className="text-xs text-gray-500 font-normal">(optional)</span>
       </label>
-      <div className="grid sm:grid-cols-2 gap-2">
-        <input
-          type="text"
-          value={value.name}
+      <input
+        type="text"
+        value={value.name}
+        disabled={disabled}
+        onChange={(e) => onChange({ name: e.target.value })}
+        placeholder="Full name (e.g. Alex Chen)"
+        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
+      />
+      <div>
+        <div className="text-xs font-medium text-gray-600 mb-1">Affiliation</div>
+        <AuthorAffiliationPicker
+          value={{
+            department_id: value.department_id,
+            affiliation: value.affiliation,
+          }}
+          onChange={(p) =>
+            onChange({
+              department_id: p.department_id ?? null,
+              affiliation: p.affiliation ?? value.affiliation,
+            })
+          }
+          departments={departments}
           disabled={disabled}
-          onChange={(e) => onChange({ name: e.target.value })}
-          placeholder="Full name (e.g. Alex Chen)"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
-        />
-        <input
-          type="text"
-          value={value.affiliation}
-          disabled={disabled}
-          onChange={(e) => onChange({ affiliation: e.target.value })}
-          placeholder="Affiliation (e.g. Graduate student, Smith Lab)"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
         />
       </div>
       <p className="text-xs text-gray-500">
         For non-faculty mentors — e.g. graduate students, postdocs, or mentors
         from another institution. Only the name will appear in the byline;
-        affiliation is stored for reference.
+        affiliation is stored for point attribution and disambiguation.
       </p>
     </div>
   )
@@ -231,10 +399,12 @@ export function ExternalMentorSlot({
 export function CoauthorList({
   value,
   onChange,
+  departments,
   disabled,
 }: {
   value: CoauthorState[]
   onChange: (next: CoauthorState[]) => void
+  departments: DepartmentOption[]
   disabled?: boolean
 }) {
   const update = (idx: number, patch: Partial<CoauthorState>) => {
@@ -244,7 +414,12 @@ export function CoauthorList({
   const add = () =>
     onChange([
       ...value,
-      { key: `co-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '' },
+      {
+        key: `co-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: '',
+        department_id: null,
+        affiliation: '',
+      },
     ])
   const move = (idx: number, dir: -1 | 1) => {
     const j = idx + dir
@@ -265,47 +440,63 @@ export function CoauthorList({
       {value.map((c, idx) => (
         <div
           key={c.key}
-          className="flex items-center gap-2 border border-gray-200 rounded-md p-2 bg-white"
+          className="border border-gray-200 rounded-md p-2 bg-white space-y-2"
         >
-          <GripVertical size={14} className="text-gray-400 flex-shrink-0" />
-          <span className="text-xs text-gray-500 font-medium w-6 text-center">
-            {idx + 1}
-          </span>
-          <input
-            type="text"
-            value={c.name}
-            disabled={disabled}
-            onChange={(e) => update(idx, { name: e.target.value })}
-            placeholder="Full name"
-            className="flex-1 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
-          />
-          <button
-            type="button"
-            onClick={() => move(idx, -1)}
-            disabled={disabled || idx === 0}
-            className="text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
-            title="Move up"
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            onClick={() => move(idx, 1)}
-            disabled={disabled || idx === value.length - 1}
-            className="text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
-            title="Move down"
-          >
-            ↓
-          </button>
-          <button
-            type="button"
-            onClick={() => remove(idx)}
-            disabled={disabled}
-            className="text-gray-400 hover:text-red-600 disabled:opacity-30"
-            title="Remove"
-          >
-            <X size={14} />
-          </button>
+          <div className="flex items-center gap-2">
+            <GripVertical size={14} className="text-gray-400 flex-shrink-0" />
+            <span className="text-xs text-gray-500 font-medium w-6 text-center">
+              {idx + 1}
+            </span>
+            <input
+              type="text"
+              value={c.name}
+              disabled={disabled}
+              onChange={(e) => update(idx, { name: e.target.value })}
+              placeholder="Full name"
+              className="flex-1 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
+            />
+            <button
+              type="button"
+              onClick={() => move(idx, -1)}
+              disabled={disabled || idx === 0}
+              className="text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
+              title="Move up"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => move(idx, 1)}
+              disabled={disabled || idx === value.length - 1}
+              className="text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
+              title="Move down"
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              onClick={() => remove(idx)}
+              disabled={disabled}
+              className="text-gray-400 hover:text-red-600 disabled:opacity-30"
+              title="Remove"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div className="pl-9">
+            <AuthorAffiliationPicker
+              value={{ department_id: c.department_id, affiliation: c.affiliation }}
+              onChange={(p) =>
+                update(idx, {
+                  department_id: p.department_id ?? null,
+                  affiliation: p.affiliation ?? c.affiliation,
+                })
+              }
+              departments={departments}
+              disabled={disabled}
+              compact
+            />
+          </div>
         </div>
       ))}
       <button

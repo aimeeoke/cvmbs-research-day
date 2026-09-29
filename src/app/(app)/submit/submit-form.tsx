@@ -31,7 +31,7 @@ import {
   type SubmissionInput,
 } from './actions'
 
-type Department = { id: string; name: string }
+type Department = { id: string; name: string; short_name?: string | null }
 
 type Props = {
   submissionId: string
@@ -103,10 +103,11 @@ const RESEARCH_TYPES = [
 
 const RESEARCH_STAGES = ['Early', 'Advanced'] as const
 
-// Separator used to concatenate an "Other Mentor" name + affiliation into
-// submission_authors.display_name (there's no dedicated affiliation column).
-// Middle dot with spaces is effectively never in a real person's name.
-const OTHER_MENTOR_SEP = ' · '
+// Legacy separator that older drafts used to squeeze the External Mentor's
+// affiliation into `display_name` before we had a real column. Kept for the
+// load-side parse only — new writes go into `submission_authors.affiliation`
+// via the 2026-09-29 migration.
+const LEGACY_OTHER_MENTOR_SEP = ' · '
 
 const RESEARCH_STAGE_HINT =
   'Early = undergrad, post-bacc, or graduate student / resident with ≤ 2 years in the research program. ' +
@@ -133,10 +134,15 @@ function deserialize(initial: SubmissionInput): FormState {
   const coauthorRows = authors.filter((a) => !a.is_presenter && !a.is_mentor)
 
   // Save order is [Other, cvmbs2, cvmbs1] (last mentor by position is Faculty
-  // Mentor 1). We split by flag/marker first, then fill CVMBS slots in reverse
-  // position order so cvmbs1 always ends up last in the byline.
+  // Mentor 1). The External Mentor row is identified by the absence of a
+  // faculty_id AND presence of affiliation data (new column, or the legacy
+  // " · " suffix in display_name for pre-migration drafts).
   const externalRow = mentorRows.find(
-    (m) => !m.faculty_id && (m.display_name ?? '').includes(OTHER_MENTOR_SEP)
+    (m) =>
+      !m.faculty_id &&
+      (!!m.affiliation ||
+        !!m.department_id ||
+        (m.display_name ?? '').includes(LEGACY_OTHER_MENTOR_SEP))
   )
   const cvmbsRows = mentorRows.filter((m) => m !== externalRow)
   // Reverse so the highest-position CVMBS mentor becomes cvmbs1.
@@ -170,16 +176,20 @@ function deserialize(initial: SubmissionInput): FormState {
       mode: cvmbs1Row && !cvmbs1Row.faculty_id ? 'not_listed' : 'picker',
       faculty_id: cvmbs1Row?.faculty_id ?? null,
       name: cvmbs1Row?.display_name ?? '',
+      department_id: cvmbs1Row?.department_id ?? null,
     },
     mentor_cvmbs_2: {
       mode: cvmbs2Row && !cvmbs2Row.faculty_id ? 'not_listed' : 'picker',
       faculty_id: cvmbs2Row?.faculty_id ?? null,
       name: cvmbs2Row?.display_name ?? '',
+      department_id: cvmbs2Row?.department_id ?? null,
     },
-    mentor_external: splitExternalMentor(externalRow?.display_name ?? ''),
+    mentor_external: loadExternalMentor(externalRow ?? null),
     coauthors: coauthorRows.map((c, i) => ({
       key: `co-load-${i}`,
       name: c.display_name ?? '',
+      department_id: c.department_id ?? null,
+      affiliation: c.affiliation ?? '',
     })),
   }
 }
@@ -197,6 +207,9 @@ function serializeAuthors(state: FormState): AuthorInput[] {
       faculty_id: state.presenter.faculty_id,
       display_name: state.presenter.name.trim(),
       email: state.presenter.email.trim() || null,
+      // Presenter's dept lives on the parent submission row, not the author row.
+      department_id: null,
+      affiliation: null,
       is_presenter: true,
       is_mentor: false,
     })
@@ -209,6 +222,8 @@ function serializeAuthors(state: FormState): AuthorInput[] {
         faculty_id: null,
         display_name: c.name.trim(),
         email: null,
+        department_id: c.department_id,
+        affiliation: c.affiliation.trim() || null,
         is_presenter: false,
         is_mentor: false,
       })
@@ -218,13 +233,13 @@ function serializeAuthors(state: FormState): AuthorInput[] {
   // Mentor byline order: Other Mentor → Faculty Mentor 2 → Faculty Mentor 1
   // (Faculty Mentor 1 ends up in the last byline position).
   if (state.mentor_external.name.trim()) {
-    const name = state.mentor_external.name.trim()
-    const aff = state.mentor_external.affiliation.trim()
     push({
       profile_id: null,
       faculty_id: null,
-      display_name: aff ? `${name}${OTHER_MENTOR_SEP}${aff}` : name,
+      display_name: state.mentor_external.name.trim(),
       email: null,
+      department_id: state.mentor_external.department_id,
+      affiliation: state.mentor_external.affiliation.trim() || null,
       is_presenter: false,
       is_mentor: true,
     })
@@ -239,6 +254,10 @@ function serializeAuthors(state: FormState): AuthorInput[] {
         faculty_id: m.mode === 'picker' ? m.faculty_id : null,
         display_name: m.name.trim() || null,
         email: null,
+        // Only carry dept when the person typed a name (not_listed); when
+        // linked via the picker the dept comes from the linked faculty row.
+        department_id: m.mode === 'not_listed' ? m.department_id : null,
+        affiliation: null,
         is_presenter: false,
         is_mentor: true,
       })
@@ -248,12 +267,26 @@ function serializeAuthors(state: FormState): AuthorInput[] {
   return authors
 }
 
-function splitExternalMentor(raw: string): MentorExternalState {
-  const idx = raw.indexOf(OTHER_MENTOR_SEP)
-  if (idx === -1) return { name: raw, affiliation: '' }
+// Load External Mentor from a saved row. Prefer the new `affiliation` /
+// `department_id` columns; fall back to parsing the legacy " · " suffix out
+// of display_name for any pre-migration drafts.
+function loadExternalMentor(row: AuthorInput | null): MentorExternalState {
+  if (!row) return { name: '', department_id: null, affiliation: '' }
+  const raw = row.display_name ?? ''
+  const hasNewShape = !!row.affiliation || !!row.department_id
+  if (hasNewShape) {
+    return {
+      name: raw,
+      department_id: row.department_id ?? null,
+      affiliation: row.affiliation ?? '',
+    }
+  }
+  const idx = raw.indexOf(LEGACY_OTHER_MENTOR_SEP)
+  if (idx === -1) return { name: raw, department_id: null, affiliation: '' }
   return {
     name: raw.slice(0, idx),
-    affiliation: raw.slice(idx + OTHER_MENTOR_SEP.length),
+    department_id: null,
+    affiliation: raw.slice(idx + LEGACY_OTHER_MENTOR_SEP.length),
   }
 }
 
@@ -535,6 +568,7 @@ export function SubmitForm(props: Props) {
             patch({ mentor_cvmbs_1: { ...state.mentor_cvmbs_1, ...p } })
           }
           facultyOptions={props.facultyOptions}
+          departments={props.departments}
           disabled={disabled}
         />
         <CvmbsMentorSlot
@@ -544,6 +578,7 @@ export function SubmitForm(props: Props) {
             patch({ mentor_cvmbs_2: { ...state.mentor_cvmbs_2, ...p } })
           }
           facultyOptions={props.facultyOptions}
+          departments={props.departments}
           disabled={disabled}
         />
         <ExternalMentorSlot
@@ -551,6 +586,7 @@ export function SubmitForm(props: Props) {
           onChange={(p) =>
             patch({ mentor_external: { ...state.mentor_external, ...p } })
           }
+          departments={props.departments}
           disabled={disabled}
         />
       </Section>
@@ -629,6 +665,7 @@ export function SubmitForm(props: Props) {
           <CoauthorList
             value={state.coauthors}
             onChange={(next) => patch({ coauthors: next })}
+            departments={props.departments}
             disabled={disabled}
           />
           <p className="mt-2 text-xs text-gray-500">

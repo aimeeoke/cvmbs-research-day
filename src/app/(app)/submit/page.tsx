@@ -36,7 +36,7 @@ export default async function SubmitPage({
     { data: submission, error: subErr },
   ] = await Promise.all([
     supabase.from('events').select('*').eq('is_active', true).maybeSingle(),
-    supabase.from('departments').select('id, name').order('sort_order'),
+    supabase.from('departments').select('id, name, short_name').order('sort_order'),
     supabase
       .from('faculty')
       .select(
@@ -106,6 +106,8 @@ export default async function SubmitPage({
       faculty_id: string | null
       display_name: string | null
       email: string | null
+      department_id: string | null
+      affiliation: string | null
       is_presenter: boolean
       is_mentor: boolean
     })
@@ -116,6 +118,8 @@ export default async function SubmitPage({
       faculty_id: a.faculty_id,
       display_name: a.display_name,
       email: a.email,
+      department_id: a.department_id ?? null,
+      affiliation: a.affiliation ?? null,
       is_presenter: a.is_presenter,
       is_mentor: a.is_mentor,
     }))
@@ -145,7 +149,11 @@ export default async function SubmitPage({
       submissionId={submission.id}
       status={submission.status as SubmissionStatus}
       initial={initial}
-      departments={(departments ?? []).map((d) => ({ id: d.id, name: d.name }))}
+      departments={(departments ?? []).map((d) => ({
+        id: d.id,
+        name: d.name,
+        short_name: (d as { short_name?: string | null }).short_name ?? null,
+      }))}
       facultyOptions={facultyOptions}
       editingLocked={editingLocked}
       finalizeDeadline={event.finalize_deadline_at}

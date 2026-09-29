@@ -18,6 +18,13 @@ export type AuthorInput = {
   faculty_id: string | null
   display_name: string | null
   email: string | null
+  // Per-author affiliation (added Sep 29, 2026). Either a CVMBS department UUID,
+  // or free text for a CVMBS-adjacent program / external institution. Used for
+  // Green Labs Ambassador point attribution and same-name disambiguation.
+  // Presenter row leaves both null — presenter dept lives on the parent
+  // submission row.
+  department_id: string | null
+  affiliation: string | null
   is_presenter: boolean
   is_mentor: boolean
 }
@@ -241,6 +248,8 @@ async function persistSubmission(
       faculty_id: a.faculty_id,
       display_name: a.display_name?.trim() || null,
       email: a.email?.trim().toLowerCase() || null,
+      department_id: a.department_id ?? null,
+      affiliation: a.affiliation?.trim() || null,
       is_presenter: !!a.is_presenter,
       is_mentor: !!a.is_mentor,
     }))

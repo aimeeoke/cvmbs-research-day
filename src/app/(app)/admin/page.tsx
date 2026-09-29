@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FileText, Inbox, ShieldCheck } from 'lucide-react'
+import { FileText, Inbox, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Admin · CVMBS Research Day' }
@@ -11,6 +11,7 @@ export default async function AdminHome() {
     { count: pendingRoleRequests },
     { count: pendingWithdrawals },
     { count: totalSubmissions },
+    { count: unlinkedAuthors },
   ] = await Promise.all([
     supabase
       .from('role_requests')
@@ -22,6 +23,12 @@ export default async function AdminHome() {
       .not('withdrawal_requested_at', 'is', null)
       .neq('status', 'withdrawn'),
     supabase.from('submissions').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('submission_authors')
+      .select('id', { count: 'exact', head: true })
+      .is('profile_id', null)
+      .is('faculty_id', null)
+      .not('display_name', 'is', null),
   ])
 
   return (
@@ -52,6 +59,13 @@ export default async function AdminHome() {
           title="Abstracts overview"
           badge={totalSubmissions ?? undefined}
           hint="Every submission across all statuses, filterable, with click-in view."
+        />
+        <AdminCard
+          href="/admin/names"
+          icon={<Users size={22} />}
+          title="Author names"
+          badge={unlinkedAuthors ?? undefined}
+          hint="Unlinked hand-typed author names. Rename to fix misspellings and merge duplicates before points math runs."
         />
       </div>
     </div>

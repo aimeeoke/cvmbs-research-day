@@ -183,7 +183,12 @@ A unified conference management platform for Colorado State University's College
       var is present.
 - [ ] Author enhancements (deferred):
   - [ ] Capture Green Labs Ambassador status *per author* on the submit form.
-  - [ ] Admin name-canonicalization for student misspellings.
+  - [x] ~~Admin name-canonicalization for student misspellings.~~
+        Sep 29, 2026 — `/admin/names` lists every unlinked hand-typed
+        author name with count, role breakdown, and any dept/affiliation
+        tags. Inline rename applies to every row with the exact-match
+        current spelling. Server action is admin-gated and only touches
+        rows where profile_id + faculty_id are both NULL.
 - [x] ~~Convert affiliations from free text to multi-select~~ — done
       via the grouped checkbox picker above (source is a CSV rather than
       an admin-managed list, but functionally equivalent for now).

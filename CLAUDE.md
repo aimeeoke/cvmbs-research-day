@@ -252,6 +252,19 @@ A unified conference management platform for Colorado State University's College
       Helper library at `src/lib/storage.ts` — `uploadCertification`,
       `getCertificationPublicUrl`, `deleteCertification`,
       `buildCertificationPath`. See "Storage pattern" below.
+- [x] **Certifications DB table (Sep 29, 2026).** New `certifications`
+      table backs the Storage bucket with typed metadata. Three kinds
+      (ambassador / my_green_lab / green_paw), two feed paths (CSV
+      import for the pre-loaded ambassador list, user upload for the
+      self-service path). Fields: profile_id/first_name/last_name/email
+      for individuals, faculty_id/lab_name for labs, source (csv_import
+      / user_upload / admin_manual), storage_path (nullable — CSV rows
+      have no PDF), valid_through, verified_at/by, uploaded_by/at.
+      RLS: public read (for the future directory page), auth insert
+      (self-upload), admin update/delete (owns verification).
+      Supersedes the pre-existing boolean flags on `profiles` and
+      `faculty` — those stay for now but new code should read from
+      this table.
 
 ### Rich text pattern (Sep 29, 2026)
 Reusable across projects — the pattern is: (a) TipTap-backed editor with a
@@ -327,6 +340,7 @@ Applied here for Green Labs certification PDFs.
 6. `supabase/migrations/2026-09-28_withdrawal_and_delete.sql` — Sep 28, 2026 — withdrawal + delete-draft support
 7. `supabase/migrations/2026-09-29_author_affiliation.sql` — Sep 29, 2026 — per-author department_id + affiliation
 8. `supabase/migrations/2026-09-29_certifications_bucket.sql` — Sep 29, 2026 — certifications Storage bucket + RLS
+9. `supabase/migrations/2026-09-29_certifications_table.sql` — Sep 29, 2026 — certifications DB table (backs the bucket with typed metadata)
 
 ### Deploy
 - [x] **Sep 28, 2026 — Vercel cutover done.** `researchday.vercel.app`

@@ -123,3 +123,37 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Rich text (TipTap) editor content — restore the paragraph spacing and
+   sub/superscript sizing that Tailwind's reset zeroes out. Also styles
+   the read-only <RichTextView> since it emits the same tags. */
+.prose-abstract p {
+  margin: 0;
+}
+.prose-abstract p + p {
+  margin-top: 0.75rem;
+}
+.prose-abstract em {
+  font-style: italic;
+}
+.prose-abstract strong {
+  font-weight: 600;
+}
+.prose-abstract sup {
+  vertical-align: super;
+  font-size: 0.75em;
+  line-height: 0;
+}
+.prose-abstract sub {
+  vertical-align: sub;
+  font-size: 0.75em;
+  line-height: 0;
+}
+.prose-abstract .tiptap:focus {
+  outline: none;
+}
+.prose-abstract .tiptap:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(156 163 175);
+  pointer-events: none;
+}

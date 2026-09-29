@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Check, X } from 'lucide-react'
+import { RichTextView } from '@/components/rich-text-view'
+import { richTextIsEmpty, richTextToPlainText } from '@/lib/rich-text'
 import {
   approveWithdrawal,
   denyRoleRequest,
@@ -107,14 +109,14 @@ export function RequestsClient({
                 run(
                   w.id,
                   () => approveWithdrawal(w.id),
-                  `Withdrew "${w.title ?? 'Untitled'}".`
+                  `Withdrew "${richTextToPlainText(w.title) || 'Untitled'}".`
                 )
               }
               onReject={() =>
                 run(
                   w.id,
                   () => rejectWithdrawal(w.id),
-                  `Cleared withdrawal request on "${w.title ?? 'Untitled'}".`
+                  `Cleared withdrawal request on "${richTextToPlainText(w.title) || 'Untitled'}".`
                 )
               }
             />
@@ -270,7 +272,11 @@ function WithdrawalCard({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-baseline gap-2">
             <span className="font-medium text-gray-900">
-              {row.title ?? <em className="text-gray-400">Untitled</em>}
+              {richTextIsEmpty(row.title) ? (
+                <em className="text-gray-400">Untitled</em>
+              ) : (
+                <RichTextView html={row.title} inline />
+              )}
             </span>
             <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-medium">
               {row.status}

@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import type { SubmissionStatus } from '@/lib/types/database'
+import { RichTextView } from '@/components/rich-text-view'
+import { richTextIsEmpty, richTextToPlainText } from '@/lib/rich-text'
 
 export type BrowserRow = {
   id: string
@@ -58,7 +60,7 @@ export function AbstractsBrowser({
       if (sessionF && r.session_preference !== sessionF) return false
       if (q) {
         const hay = [
-          r.title,
+          richTextToPlainText(r.title),
           r.presenter_name,
           r.presenter_email,
           r.submitter_name,
@@ -179,8 +181,10 @@ export function AbstractsBrowser({
                       href={`/admin/abstracts/${r.id}`}
                       className="hover:underline"
                     >
-                      {r.title || (
+                      {richTextIsEmpty(r.title) ? (
                         <em className="text-gray-400">Untitled draft</em>
+                      ) : (
+                        <RichTextView html={r.title} inline />
                       )}
                     </Link>
                   </td>

@@ -3,6 +3,8 @@ import { FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import type { SubmissionStatus } from '@/lib/types/database'
+import { RichTextView } from '@/components/rich-text-view'
+import { richTextIsEmpty } from '@/lib/rich-text'
 import { NewSubmissionButton } from './new-submission-button'
 import { RowActions } from './row-actions'
 
@@ -120,7 +122,11 @@ export default async function AbstractsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-gray-800">
-                    {r.title || <em className="text-gray-400">Untitled draft</em>}
+                    {richTextIsEmpty(r.title) ? (
+                      <em className="text-gray-400">Untitled draft</em>
+                    ) : (
+                      <RichTextView html={r.title} inline />
+                    )}
                   </td>
                   <td className="px-4 py-3 align-top">
                     <StatusPill status={r.status} />

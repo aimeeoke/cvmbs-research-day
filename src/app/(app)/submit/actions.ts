@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { sanitizeRichTextHtml } from '@/lib/rich-text'
 import type {
   PreferredPresentationType,
   SessionPreference,
@@ -188,9 +189,12 @@ async function persistSubmission(
   }
 
   const now = new Date().toISOString()
+  // Rich text fields are sanitized on write too, not just on render. Belt-and-
+  // suspenders — the editor already enforces the schema, but a caller could
+  // POST arbitrary HTML into the server action.
   const patch: Record<string, unknown> = {
-    title: input.title,
-    abstract: input.abstract,
+    title: sanitizeRichTextHtml(input.title),
+    abstract: sanitizeRichTextHtml(input.abstract),
     classification: input.classification,
     department_id: input.department_id,
     program: input.program,

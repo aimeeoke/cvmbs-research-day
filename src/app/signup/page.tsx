@@ -54,7 +54,7 @@ function SignupContent() {
     if (!lastName.trim()) return 'Please enter your last name.'
     if (!isEmail(email)) return 'Please enter a valid email address.'
     if (kind === 'faculty' && !isFacultyEmail(email)) {
-      return 'CSU faculty must sign up with their first.last@colostate.edu address so Green Labs points credit to your record.'
+      return 'CVMBS faculty must sign up with their first.last@colostate.edu alias.'
     }
     return null
   }
@@ -303,7 +303,7 @@ function SignupContent() {
                       <span className="font-medium">CVMBS Faculty</span>
                       <span className="block text-xs text-gray-500">
                         Must use your <span className="font-mono">first.last@colostate.edu</span>{' '}
-                        so Green Labs points credit correctly.
+                        alias.
                       </span>
                     </span>
                   </label>

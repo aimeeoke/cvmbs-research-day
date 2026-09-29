@@ -215,6 +215,50 @@ A unified conference management platform for Colorado State University's College
       correctly.
 - [x] **Admin role bootstrapped on prod (Sep 28, 2026).** Verified via
       Supabase SQL — the `user_roles` row for aimeeoke is in place.
+- [x] **Login/signup wording + name capture at login (Sep 29, 2026).**
+      Login yellow banner rewritten to warn "This is not a university
+      site" and stop users from trying their CSU SSO password. Green
+      Labs mentions removed from login + signup wording. Login form now
+      also captures First/Last name (optional; only used when the OTP
+      flow creates a new profile — the `handle_new_user` trigger picks
+      them up via the same user-metadata path as the /signup form).
+- [x] **Rich text for abstract title + body (Sep 29, 2026).** Both
+      fields now use TipTap so scientific notation from Word survives
+      the paste. See "Rich text pattern" below for the reusable design.
+
+### Rich text pattern (Sep 29, 2026)
+Reusable across projects — the pattern is: (a) TipTap-backed editor with a
+tiny whitelist of marks, (b) DOMPurify sanitizer running on both save AND
+render, (c) plain TEXT column in Postgres for storage, (d) helpers for
+"is empty" and "extract plain text" so search / char counts still work.
+
+- **Source of truth:** `src/lib/rich-text.ts` — allowed tags list,
+  `sanitizeRichTextHtml()`, `richTextIsEmpty()`, `richTextToPlainText()`.
+  If you paste this into another project, this file plus
+  `rich-text-editor.tsx` + `rich-text-view.tsx` is the entire pattern.
+- **What's allowed:** `<p> <br> <strong> <em> <sup> <sub>`. Nothing else.
+  Deliberately no links, headings, lists, colors, or fonts — abstracts
+  should be uniform, and it keeps the injection surface tiny.
+- **Editor:** `src/components/rich-text-editor.tsx` — configurable
+  single-line (title) or multiline (body). Toolbar: B / I / X² / X₂.
+  `immediatelyRender: false` is required to avoid Next.js hydration
+  mismatches.
+- **Read-only view:** `src/components/rich-text-view.tsx` — sanitizes
+  before `dangerouslySetInnerHTML`. Pass `inline` when embedding in
+  table cells or headings so the outer `<p>` is stripped.
+- **Storage:** unchanged. `submissions.title` and `submissions.abstract`
+  are still TEXT — they now hold sanitized HTML instead of plain text.
+  Legacy plain-text values render fine (no tags = no marks).
+- **Search / filter:** always compare against `richTextToPlainText(html)`.
+  The abstracts-browser filter and the withdrawal toast messages both use
+  this so the user never sees raw `<em>` in a UI string.
+- **Packages:** `@tiptap/react @tiptap/starter-kit
+  @tiptap/extension-superscript @tiptap/extension-subscript
+  isomorphic-dompurify` (v3.31.x TipTap, works with React 19).
+- **CSS:** the `.prose-abstract` block in `src/app/globals.css` restores
+  italic/sup/sub styling that Tailwind Preflight would otherwise flatten.
+  Any read-only view needs this class (RichTextView applies it
+  automatically).
 
 ### Migrations applied (in order)
 1. `supabase/schema.sql` — Sep 23, 2026 (initial V2 schema)
@@ -225,9 +269,14 @@ A unified conference management platform for Colorado State University's College
 
 ### Deploy
 - [x] **Sep 28, 2026 — Vercel cutover done.** `researchday.vercel.app`
-      now serves this repo (was previously the V1 Vite site at
-      `aimeeoke/ResearchDay`). Supabase Auth Site URL + Redirect URLs
-      updated to trust the production domain.
+      now serves this repo via a **new Vercel project named
+      `cvmbs-research-day`** (Next.js). The old Vercel project named
+      `researchday` (V1 Vite site, `aimeeoke/ResearchDay`) is dormant —
+      leave it alone, it no longer owns the domain. Supabase Auth Site
+      URL + Redirect URLs updated to trust the production domain.
+      Sep 29, 2026: the dormant `researchday` project fired failed-build
+      emails after a stray push — fixed by switching its Framework
+      Preset from Vite to Next.js so it stops looking for `dist/`.
 - [x] Admin role bootstrapped on prod (Sep 28, 2026) — the `user_roles`
       row exists; sidebar shows Admin link and `/admin/*` is reachable.
 

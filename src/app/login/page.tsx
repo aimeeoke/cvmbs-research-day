@@ -38,6 +38,8 @@ function LoginContent() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
@@ -79,7 +81,17 @@ function LoginContent() {
         router.refresh()
       }
     } else {
-      const { error } = await supabase.auth.signInWithOtp({ email: cleanEmail })
+      const first = firstName.trim()
+      const last = lastName.trim()
+      const metaData: Record<string, string> = {}
+      if (first) metaData.first_name = first
+      if (last) metaData.last_name = last
+      if (first || last) metaData.full_name = `${first} ${last}`.trim()
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: Object.keys(metaData).length ? { data: metaData } : undefined,
+      })
       setIsLoading(false)
       if (error) setError(error.message)
       else setCodeSent(true)
@@ -212,6 +224,8 @@ function LoginContent() {
                     setOtpCode('')
                     setEmail('')
                     setPassword('')
+                    setFirstName('')
+                    setLastName('')
                     setError(null)
                   }}
                   className="text-sm text-gray-500 hover:text-gray-700"
@@ -233,10 +247,11 @@ function LoginContent() {
 
               <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
                 <p className="text-xs text-amber-800">
-                  <strong className="text-amber-900">CVMBS Faculty:</strong> sign in with
-                  your <span className="font-mono">first.last@colostate.edu</span> alias so
-                  Green Labs points credit to your record. Everyone else, use whichever
-                  email you registered with.
+                  <strong className="text-amber-900">This is not a university site</strong>{' '}
+                  and does not work with your university credentials.{' '}
+                  <strong className="text-amber-900">For CVMBS faculty only:</strong>{' '}
+                  please use your <span className="font-mono">First.Last@colostate.edu</span>{' '}
+                  alias. For all others, please use the email you most frequently check.
                 </p>
               </div>
 
@@ -262,6 +277,40 @@ function LoginContent() {
                     />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="first-name" className="block text-sm font-medium text-gray-700">
+                      First name <span className="text-gray-400 font-normal">(new users)</span>
+                    </label>
+                    <input
+                      id="first-name"
+                      name="first-name"
+                      type="text"
+                      autoComplete="given-name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#1E4D2B] focus:border-[#1E4D2B] sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="last-name" className="block text-sm font-medium text-gray-700">
+                      Last name <span className="text-gray-400 font-normal">(new users)</span>
+                    </label>
+                    <input
+                      id="last-name"
+                      name="last-name"
+                      type="text"
+                      autoComplete="family-name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#1E4D2B] focus:border-[#1E4D2B] sm:text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="-mt-2 text-xs text-gray-500">
+                  Returning users can leave the name fields blank.
+                </p>
 
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -318,8 +367,8 @@ function LoginContent() {
           </Link>
         </p>
         <p className="mt-2 text-center text-xs text-gray-500">
-          Most people sign in with an emailed code. Support staff can enter a password to
-          sign in immediately.
+          Most people sign in with an emailed code. However, a password can be entered in
+          Settings.
         </p>
       </div>
     </div>

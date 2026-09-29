@@ -7,6 +7,12 @@ import type {
   SessionPreference,
   SubmissionStatus,
 } from '@/lib/types/database'
+import { RichTextEditor } from '@/components/rich-text-editor'
+import {
+  richTextCharCount,
+  richTextIsEmpty,
+  richTextWordCount,
+} from '@/lib/rich-text'
 import {
   AffiliationsPicker,
   CoauthorList,
@@ -262,8 +268,8 @@ function computeBylineNames(state: FormState): string[] {
 }
 
 function validate(state: FormState): string | null {
-  if (!state.title.trim()) return 'Add a title before submitting.'
-  if (!state.abstract.trim()) return 'Add the abstract body before submitting.'
+  if (richTextIsEmpty(state.title)) return 'Add a title before submitting.'
+  if (richTextIsEmpty(state.abstract)) return 'Add the abstract body before submitting.'
   if (!state.department_id && !state.program?.trim())
     return 'Pick a Department or enter a Program in the Presenter section.'
   if (!state.presenter.name.trim())
@@ -585,13 +591,17 @@ export function SubmitForm(props: Props) {
       </Section>
 
       <Section title="Title">
-        <Field label="Abstract title" required>
-          <input
-            type="text"
+        <Field
+          label="Abstract title"
+          required
+          hint="Use the Italic button (or Ctrl+I) for species names — e.g. E. coli. Superscripts and subscripts work too."
+        >
+          <RichTextEditor
             value={state.title}
             disabled={disabled}
-            onChange={(e) => patch({ title: e.target.value })}
-            className={inputClass}
+            onChange={(html) => patch({ title: html })}
+            multiline={false}
+            ariaLabel="Abstract title"
           />
         </Field>
       </Section>
@@ -630,14 +640,19 @@ export function SubmitForm(props: Props) {
       </Section>
 
       <Section title="Abstract">
-        <Field label="Abstract body" required hint="Plain text. Aim for ~250–500 words.">
-          <textarea
+        <Field
+          label="Abstract body"
+          required
+          hint="Aim for ~250–500 words. Paste from Word — italics for species names, sub/superscripts, Greek letters (α, β, μ), and math symbols all come through."
+        >
+          <RichTextEditor
             value={state.abstract}
             disabled={disabled}
-            onChange={(e) => patch({ abstract: e.target.value })}
-            rows={10}
-            className={inputClass}
+            onChange={(html) => patch({ abstract: html })}
+            minRows={10}
+            ariaLabel="Abstract body"
           />
+          <AbstractCount html={state.abstract} />
         </Field>
       </Section>
 
@@ -912,6 +927,31 @@ function Field({
       {children}
       {hint && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
     </div>
+  )
+}
+
+// Word + char count for the abstract body. Colored amber if outside the
+// ~250–500 word target so submitters have a visual nudge — no hard cap,
+// since the guideline is a suggestion, not a rule.
+function AbstractCount({ html }: { html: string }) {
+  const words = richTextWordCount(html)
+  const chars = richTextCharCount(html)
+  const inRange = words >= 250 && words <= 500
+  const tone = words === 0
+    ? 'text-gray-400'
+    : inRange
+      ? 'text-gray-500'
+      : 'text-amber-700'
+  return (
+    <p className={`mt-1 text-xs tabular-nums ${tone}`}>
+      {words.toLocaleString()} {words === 1 ? 'word' : 'words'} ·{' '}
+      {chars.toLocaleString()} characters
+      {words > 0 && !inRange && (
+        <span className="ml-1 text-amber-700">
+          (target ~250–500)
+        </span>
+      )}
+    </p>
   )
 }
 

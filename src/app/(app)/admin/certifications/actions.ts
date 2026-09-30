@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-async function requireAdmin() {
+// Accepts admin OR committee_member. Committee members share the cert
+// verification workflow with admin — approving/denying uploads and
+// un-verifying mistaken approvals.
+async function requireAdminAccess() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -15,8 +18,10 @@ async function requireAdmin() {
     .from('user_roles')
     .select('role')
     .eq('user_id', user.id)
-  const isAdmin = (roleRows ?? []).some((r) => r.role === 'admin')
-  if (!isAdmin) throw new Error('Not authorized.')
+  const hasAccess = (roleRows ?? []).some(
+    (r) => r.role === 'admin' || r.role === 'committee_member'
+  )
+  if (!hasAccess) throw new Error('Not authorized.')
 
   return { supabase, user }
 }
@@ -29,7 +34,7 @@ async function requireAdmin() {
  * Points calc will check `verified_at IS NOT NULL`.
  */
 export async function approveCertification(certId: string) {
-  const { supabase, user } = await requireAdmin()
+  const { supabase, user } = await requireAdminAccess()
 
   const { data: existing, error: loadErr } = await supabase
     .from('certifications')
@@ -63,7 +68,7 @@ export async function approveCertification(certId: string) {
  * "banned" status, just "this specific upload didn't check out."
  */
 export async function denyCertification(certId: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase } = await requireAdminAccess()
 
   const { data: existing, error: loadErr } = await supabase
     .from('certifications')
@@ -96,7 +101,7 @@ export async function denyCertification(certId: string) {
  * Doesn't touch the file or the row.
  */
 export async function unverifyCertification(certId: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase } = await requireAdminAccess()
 
   const { error } = await supabase
     .from('certifications')

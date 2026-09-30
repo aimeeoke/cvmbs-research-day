@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-async function requireAdmin() {
+// Accepts admin OR committee_member. Committee members have full write
+// access here — renaming unlinked author names is part of the review
+// workflow committee owns alongside admin.
+async function requireAdminAccess() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -15,8 +18,10 @@ async function requireAdmin() {
     .from('user_roles')
     .select('role')
     .eq('user_id', user.id)
-  const isAdmin = (roleRows ?? []).some((r) => r.role === 'admin')
-  if (!isAdmin) throw new Error('Not authorized.')
+  const hasAccess = (roleRows ?? []).some(
+    (r) => r.role === 'admin' || r.role === 'committee_member'
+  )
+  if (!hasAccess) throw new Error('Not authorized.')
 
   return { supabase }
 }
@@ -30,7 +35,7 @@ async function requireAdmin() {
  * Returns the number of rows updated so the client can confirm what happened.
  */
 export async function renameAuthorName(oldName: string, newName: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase } = await requireAdminAccess()
 
   const cleanOld = oldName.trim()
   const cleanNew = newName.trim()

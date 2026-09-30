@@ -6,7 +6,14 @@ export type CurrentUser = {
   email: string
   profile: Profile | null
   roles: UserRole[]
+  /** True admin — can do everything, including role requests + withdrawals. */
   isAdmin: boolean
+  /** Committee member — admin-like access to abstracts / names / certs, but
+   *  NOT role requests + withdrawals. Distinct from isAdmin. */
+  isCommittee: boolean
+  /** isAdmin OR isCommittee. Use this for gating pages/actions where either
+   *  role is acceptable (the majority of the admin console). */
+  hasAdminAccess: boolean
 }
 
 /**
@@ -28,12 +35,16 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   ])
 
   const roles: UserRole[] = (roleRows ?? []).map((r) => r.role as UserRole)
+  const isAdmin = roles.includes('admin')
+  const isCommittee = roles.includes('committee_member')
 
   return {
     id: user.id,
     email: user.email ?? '',
     profile: (profile as Profile | null) ?? null,
     roles,
-    isAdmin: roles.includes('admin'),
+    isAdmin,
+    isCommittee,
+    hasAdminAccess: isAdmin || isCommittee,
   }
 }

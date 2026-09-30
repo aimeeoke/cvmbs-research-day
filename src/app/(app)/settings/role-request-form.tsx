@@ -12,10 +12,20 @@ const ROLE_DESCRIPTIONS: Record<RequestableRole, string> = {
     'Faculty PIs mentoring student presenters. Lets you view and edit abstracts you mentor.',
   judge:
     'Score abstracts during the event. (You can also register directly on the Judge page.)',
+  committee_member:
+    'Research Day committee members. Access to abstracts overview, author names, and Green Labs certifications — but not role requests or withdrawal approvals.',
   admin:
-    'Manage the entire event: users, submissions, judging assignments, and scoring.',
+    'Manage the entire event: users, submissions, judging assignments, scoring, role requests, and withdrawals.',
   volunteer:
     'Help with day-of logistics (registration desk, session moderation, etc.).',
+}
+
+const ROLE_LABELS: Record<RequestableRole, string> = {
+  mentor: 'Mentor',
+  judge: 'Judge',
+  committee_member: 'Committee member',
+  admin: 'Admin',
+  volunteer: 'Volunteer',
 }
 
 export function RoleRequestForm({
@@ -85,7 +95,7 @@ export function RoleRequestForm({
           <option value="">Select a role…</option>
           {availableRoles.map((r) => (
             <option key={r} value={r}>
-              {r[0].toUpperCase() + r.slice(1)}
+              {ROLE_LABELS[r]}
             </option>
           ))}
         </select>

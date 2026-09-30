@@ -10,12 +10,15 @@ import { publicNav, authNav, utilityNav, adminNav, type NavItem } from '@/lib/na
 
 type Props = {
   signedIn: boolean
-  isAdmin: boolean
+  /** True when the user has admin OR committee_member — shows the Admin
+   *  sidebar link either way. Committee members hit the same /admin route
+   *  and are further gated inside (see /admin/requests/layout.tsx). */
+  showAdminLink: boolean
   displayName?: string | null
   displayEmail?: string | null
 }
 
-export function SiteSidebar({ signedIn, isAdmin, displayName, displayEmail }: Props) {
+export function SiteSidebar({ signedIn, showAdminLink, displayName, displayEmail }: Props) {
   const pathname = usePathname() || '/'
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -115,7 +118,7 @@ export function SiteSidebar({ signedIn, isAdmin, displayName, displayEmail }: Pr
 
         {/* Utility / admin / sign-in-out at the bottom */}
         <div className="p-2 border-t border-gray-200 space-y-1">
-          {isAdmin &&
+          {showAdminLink &&
             adminNav.map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}

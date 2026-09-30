@@ -145,10 +145,15 @@ async function persistSubmission(
     .from('user_roles')
     .select('role')
     .eq('user_id', user.id)
-  const isAdmin = (roleRows ?? []).some((r) => r.role === 'admin')
+  // Admins AND committee members bypass the finalized/withdrawn lock —
+  // both roles need to be able to fix data on locked submissions during
+  // review. Role requests remain admin-only elsewhere.
+  const hasAdminAccess = (roleRows ?? []).some(
+    (r) => r.role === 'admin' || r.role === 'committee_member'
+  )
 
   if (
-    !isAdmin &&
+    !hasAdminAccess &&
     (current.status === 'finalized' || current.status === 'withdrawn')
   ) {
     throw new Error('This submission is locked and can no longer be edited.')

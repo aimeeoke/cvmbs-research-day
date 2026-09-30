@@ -1,11 +1,17 @@
 import Link from 'next/link'
 import { FileText, Inbox, Leaf, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 
 export const metadata = { title: 'Admin · CVMBS Research Day' }
 
 export default async function AdminHome() {
   const supabase = await createClient()
+  const user = await getCurrentUser()
+  // Committee members see the abstracts / names / certifications cards but
+  // not the Role requests & withdrawals card. Layout has already gated so
+  // user is non-null and has admin OR committee.
+  const showRequestsCard = !!user?.isAdmin
 
   const [
     { count: pendingRoleRequests },
@@ -49,15 +55,17 @@ export default async function AdminHome() {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <AdminCard
-          href="/admin/requests"
-          icon={<Inbox size={22} />}
-          title="Role requests & withdrawals"
-          badge={
-            (pendingRoleRequests ?? 0) + (pendingWithdrawals ?? 0) || undefined
-          }
-          hint={buildRequestsHint(pendingRoleRequests, pendingWithdrawals)}
-        />
+        {showRequestsCard && (
+          <AdminCard
+            href="/admin/requests"
+            icon={<Inbox size={22} />}
+            title="Role requests & withdrawals"
+            badge={
+              (pendingRoleRequests ?? 0) + (pendingWithdrawals ?? 0) || undefined
+            }
+            hint={buildRequestsHint(pendingRoleRequests, pendingWithdrawals)}
+          />
+        )}
         <AdminCard
           href="/admin/abstracts"
           icon={<FileText size={22} />}

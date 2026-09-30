@@ -19,6 +19,7 @@ export type UserRole =
   | 'judge'
   | 'admin'
   | 'volunteer'
+  | 'committee_member'
 
 export type SubmissionStatus = 'draft' | 'submitted' | 'finalized' | 'withdrawn'
 

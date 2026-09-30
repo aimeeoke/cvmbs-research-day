@@ -12,7 +12,7 @@ export default async function AppLayout({
     <div className="flex flex-col lg:flex-row min-h-screen">
       <SiteSidebar
         signedIn={!!user}
-        isAdmin={user?.isAdmin ?? false}
+        showAdminLink={user?.hasAdminAccess ?? false}
         displayName={user?.profile?.full_name ?? null}
         displayEmail={user?.email}
       />

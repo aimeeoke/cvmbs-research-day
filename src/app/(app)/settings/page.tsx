@@ -15,6 +15,18 @@ const STATUS_STYLES: Record<RoleRequestStatus, string> = {
   resolved: 'bg-gray-100 text-gray-800',
 }
 
+const ROLE_LABELS: Partial<Record<UserRole, string>> = {
+  committee_member: 'Committee member',
+}
+
+// Turn "committee_member" into "Committee member", "admin" into "Admin", etc.
+// Explicit overrides in ROLE_LABELS win; everything else gets title-cased.
+function formatRoleLabel(role: string): string {
+  if (role in ROLE_LABELS) return ROLE_LABELS[role as UserRole]!
+  const lower = role.replace(/_/g, ' ').toLowerCase()
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
 export default async function SettingsPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login?redirect=/settings')
@@ -53,7 +65,7 @@ export default async function SettingsPage() {
                   key={r}
                   className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#1E4D2B]/10 text-[#1E4D2B]"
                 >
-                  {r}
+                  {formatRoleLabel(r)}
                 </span>
               ))}
             </div>
@@ -79,8 +91,8 @@ export default async function SettingsPage() {
               <li key={r.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900 capitalize">
-                      {r.requested_role}
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatRoleLabel(r.requested_role)}
                     </span>
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_STYLES[r.status as RoleRequestStatus]}`}

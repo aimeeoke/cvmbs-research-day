@@ -5,6 +5,7 @@ import {
   Calendar,
   FileText,
   Gavel,
+  Leaf,
   Settings,
   ShieldCheck,
   type LucideIcon,
@@ -26,6 +27,7 @@ export const publicNav: NavItem[] = [
   { href: '/about', label: 'About', icon: Info, match: startsWith('/about') },
   { href: '/winners-2026', label: '2026 Winners', icon: Trophy, match: startsWith('/winners-2026') },
   { href: '/schedule', label: 'Schedule', icon: Calendar, match: startsWith('/schedule') },
+  { href: '/green-labs', label: 'Green Labs', icon: Leaf, match: startsWith('/green-labs') },
 ]
 
 /** Nav items only signed-in participants see (above public). */

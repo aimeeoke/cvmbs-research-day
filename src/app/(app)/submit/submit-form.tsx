@@ -974,11 +974,16 @@ function StatusHeader({
   const label = statusLabel(status)
   const tone = statusTone(status)
 
+  // Event deadlines are stored as full timestamps (11:59pm MST). Vercel's
+  // Node runtime defaults to UTC, so without an explicit timeZone the
+  // formatter shifts the date forward by a day. Always render event
+  // deadlines in the event's own timezone.
   const deadlineText = finalizeDeadline
     ? new Date(finalizeDeadline).toLocaleDateString(undefined, {
         month: 'long',
         day: 'numeric',
         year: 'numeric',
+        timeZone: 'America/Denver',
       })
     : null
 

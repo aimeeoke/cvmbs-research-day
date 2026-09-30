@@ -174,11 +174,16 @@ function Deadline({
   when: string | null
   fallback: string
 }) {
+  // Event deadlines are stored as full timestamps (11:59pm MST). Vercel's
+  // Node runtime defaults to UTC, so without an explicit timeZone the
+  // formatter shifts the date forward by a day (e.g. Nov 16 → Nov 17).
+  // Always render event dates in the event's own timezone.
   const text = when
     ? new Date(when).toLocaleDateString(undefined, {
         month: 'long',
         day: 'numeric',
         year: 'numeric',
+        timeZone: 'America/Denver',
       })
     : fallback
   return (

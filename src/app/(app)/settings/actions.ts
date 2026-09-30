@@ -8,6 +8,7 @@ import type { UserRole } from '@/lib/types/database'
 const REQUESTABLE_ROLES = new Set<UserRole>([
   'mentor',
   'judge',
+  'committee_member',
   'admin',
   'volunteer',
 ])

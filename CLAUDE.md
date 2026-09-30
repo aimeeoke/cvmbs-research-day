@@ -292,6 +292,15 @@ A unified conference management platform for Colorado State University's College
       in the printed program + judge assignments. `deleteDraftSubmission`
       renamed → `deleteOwnSubmission`; modal copy updated
       ("Delete submission?" instead of "Delete draft?").
+- [x] **Admin cert verification tool (Sep 29, 2026 PM).** New
+      `/admin/certifications` page: Pending tab lists every cert with
+      verified_at IS NULL (subject name + email, source, uploader,
+      date, "View file" link to the storage public URL). Approve
+      stamps verified_at + verified_by; Deny wipes both the DB row and
+      the storage file. Recently verified tab (last 50) lets admin
+      un-verify approvals made by mistake. Also added a card on
+      /admin with the pending count so it's discoverable. Closes the
+      loop from stage 5b — no more SQL to verify a cert.
 
 ### Rich text pattern (Sep 29, 2026)
 Reusable across projects — the pattern is: (a) TipTap-backed editor with a

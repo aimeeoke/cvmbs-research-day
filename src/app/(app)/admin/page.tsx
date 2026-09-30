@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FileText, Inbox, ShieldCheck, Users } from 'lucide-react'
+import { FileText, Inbox, Leaf, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Admin · CVMBS Research Day' }
@@ -12,6 +12,7 @@ export default async function AdminHome() {
     { count: pendingWithdrawals },
     { count: totalSubmissions },
     { count: unlinkedAuthors },
+    { count: pendingCerts },
   ] = await Promise.all([
     supabase
       .from('role_requests')
@@ -29,6 +30,10 @@ export default async function AdminHome() {
       .is('profile_id', null)
       .is('faculty_id', null)
       .not('display_name', 'is', null),
+    supabase
+      .from('certifications')
+      .select('id', { count: 'exact', head: true })
+      .is('verified_at', null),
   ])
 
   return (
@@ -66,6 +71,13 @@ export default async function AdminHome() {
           title="Author names"
           badge={unlinkedAuthors ?? undefined}
           hint="Unlinked hand-typed author names. Rename to fix misspellings and merge duplicates before points math runs."
+        />
+        <AdminCard
+          href="/admin/certifications"
+          icon={<Leaf size={22} />}
+          title="Green Labs certifications"
+          badge={pendingCerts ?? undefined}
+          hint="Pending Ambassador and lab cert uploads. Approve to award points; deny to delete the file."
         />
       </div>
     </div>

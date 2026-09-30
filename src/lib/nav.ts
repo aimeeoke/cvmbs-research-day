@@ -8,6 +8,7 @@ import {
   Leaf,
   Settings,
   ShieldCheck,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -16,6 +17,8 @@ export type NavItem = {
   label: string
   icon: LucideIcon
   match: (pathname: string) => boolean
+  /** Small text pill next to the label — used for "Soon" placeholders etc. */
+  badge?: string
 }
 
 const startsWith = (prefix: string) => (p: string) =>
@@ -28,6 +31,13 @@ export const publicNav: NavItem[] = [
   { href: '/winners-2026', label: '2026 Winners', icon: Trophy, match: startsWith('/winners-2026') },
   { href: '/schedule', label: 'Schedule', icon: Calendar, match: startsWith('/schedule') },
   { href: '/green-labs', label: 'Green Labs', icon: Leaf, match: startsWith('/green-labs') },
+  {
+    href: '/leaderboard',
+    label: 'Leaderboard',
+    icon: TrendingUp,
+    match: startsWith('/leaderboard'),
+    badge: 'Soon',
+  },
 ]
 
 /** Nav items only signed-in participants see (above public). */

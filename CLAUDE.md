@@ -324,6 +324,25 @@ A unified conference management platform for Colorado State University's College
       ambassador (cap 100) + 100 pts per certified lab, with links to
       the training + certification programs. Added to publicNav so it
       appears in the sidebar for all visitors.
+- [x] **About page rewrite (Sep 30, 2026).** Full content update
+      from `docs/AboutPageUpdate.docx`. 7 sections in order: Hero
+      (heading + 28-year subtitle + 3 quick-fact pills for date /
+      venue / free-to-community), About the Event (2 paragraphs +
+      Instagram tag link), Awards & Bragging Rights (3 color-accented
+      sub-cards: gold Golden Pipette, green Green Pipette with links
+      to MGL programs, platinum Platinum Mentoring Award with NEW
+      badge), Presenter Awards (prize table + category chips + CVMBS/
+      CMB eligibility rules), Watch the Leaderboard callout banner,
+      Planning Committee (existing 9 names + friendly subtitle),
+      About This Site (updated vibe-coding copy). All external links
+      target=_blank; internal links use Next Link.
+- [x] **/leaderboard placeholder (Sep 30, 2026).** New route with a
+      "Coming soon" card that explains what will land (Golden Pipette
+      live + Green Pipette starting Nov 18). Exists so the About
+      page's callout banner has somewhere to link. Sidebar entry gets
+      a small amber "Soon" pill via a new optional `badge` field on
+      `NavItem`. Full leaderboard feature is being scoped by the
+      committee — treat this stub as intentional, not stale.
 
 ### Rich text pattern (Sep 29, 2026)
 Reusable across projects — the pattern is: (a) TipTap-backed editor with a

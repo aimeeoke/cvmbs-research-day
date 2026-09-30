@@ -159,7 +159,19 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
         )}
       >
         <Icon className="h-5 w-5 flex-shrink-0" />
-        <span>{item.label}</span>
+        <span className="flex-1">{item.label}</span>
+        {item.badge && (
+          <span
+            className={cn(
+              'text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded',
+              active
+                ? 'bg-white/20 text-white'
+                : 'bg-amber-100 text-amber-800'
+            )}
+          >
+            {item.badge}
+          </span>
+        )}
       </Link>
     </li>
   )

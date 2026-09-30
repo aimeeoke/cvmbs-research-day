@@ -8,6 +8,45 @@ A unified conference management platform for Colorado State University's College
 
 ## Progress & Next Steps
 
+### ⏸ Paused 2026-09-30 — resuming after CRC sprint
+
+The platform is feature-complete for the Sep–Oct sprint. Aimee is pausing
+to work on the **CRC scoring system** (different repo, needs to demo for
+research/accounting staff on 2026-10-01). Everything below is shipped
+and deployed; nothing is half-done.
+
+**When we resume, the only outstanding scope is stage 8 of the Green
+Labs epic** — points calc + live leaderboard. That work is **blocked on
+the committee's approved feature spec**, which Aimee has out for review.
+Do NOT invent points logic on resume; wait for the committee's doc, then
+break it into tasks. The `/leaderboard` route today is an intentional
+"Coming soon" stub (commit `1630c6b`) — not a work-in-progress page.
+
+**Two known prerequisites** that we'll need to solve alongside the
+leaderboard spec:
+
+1. **Name-only ambassador matching.** The 151 MGL CSV rows have no
+   email — matching them to coauthors on abstracts (also often no
+   email) requires human review. `/admin/names` already handles the
+   "same person, different spellings" pattern for abstract-side names;
+   we'll likely want a cross-reference tool that pairs CSV ambassadors
+   to abstract-side coauthor names before points math runs.
+2. **Lab certifications not loaded.** About doc says 100 pts flat per
+   certified lab (My Green Lab or Green Paw). No CSV, no upload UI for
+   labs yet. Own mini-epic when it comes.
+
+**Not blocking, worth flagging while it's fresh:**
+
+- `profiles.is_green_labs_ambassador`, `faculty.my_green_labs_certified`,
+  `faculty.green_paw_certified` booleans still exist but are effectively
+  deprecated — the `certifications` table is the new source of truth.
+  No live callers write to the booleans. Consider dropping or reconciling
+  in a future pass.
+- One Aimee-known test gap: the About page + `/leaderboard` stub were
+  pushed at the end of the Sep 30 session but not confirmed in-browser.
+  Deploy is `1630c6b` on Vercel; visit `/about` and `/leaderboard` on
+  first resume.
+
 ### Completed (Sep 23, 2026 rebuild for Monday go-live)
 - [x] Project initialized with Next.js 16 + TypeScript + Tailwind
 - [x] shadcn/ui components installed

@@ -31,7 +31,11 @@ import {
   type SubmissionInput,
   type UserAmbassadorCert,
 } from './actions'
-import { AmbassadorUpload } from './ambassador-upload'
+import {
+  AuthorCertsSection,
+  SectionHeader as AuthorCertsHeader,
+  type AuthorRow,
+} from './author-certs-section'
 
 type Department = { id: string; name: string; short_name?: string | null }
 
@@ -46,14 +50,17 @@ type Props = {
   isSubmitter: boolean
   /** Admin read-only view — locks the form, hides mentor/edit banners, swaps header. */
   adminView?: boolean
-  // Green Labs Ambassador cert for the SIGNED-IN USER (not the presenter on
-  // the abstract). Passed from the server page after querying certifications
-  // by profile_id or email. Null if the user isn't (yet) an ambassador.
+  // Signed-in user's identity for the Green Labs cert section — the section
+  // is scoped to this abstract's authors, but knowing which one is "you"
+  // affects the Replace/Remove affordances.
   currentUser?: {
     profileId: string
     email: string
   } | null
-  currentUserAmbassadorCert?: UserAmbassadorCert | null
+  // Pre-fetched cert status for every email currently on the abstract (plus
+  // the signed-in user's own email if they aren't on it). Keyed by lowercased
+  // email. Null-value keys stay out; missing keys render as "not registered".
+  initialAmbassadorCerts?: Record<string, UserAmbassadorCert>
 }
 
 type PresenterFields = {
@@ -187,12 +194,14 @@ function deserialize(initial: SubmissionInput): FormState {
       faculty_id: cvmbs1Row?.faculty_id ?? null,
       name: cvmbs1Row?.display_name ?? '',
       department_id: cvmbs1Row?.department_id ?? null,
+      email: cvmbs1Row?.email ?? '',
     },
     mentor_cvmbs_2: {
       mode: cvmbs2Row && !cvmbs2Row.faculty_id ? 'not_listed' : 'picker',
       faculty_id: cvmbs2Row?.faculty_id ?? null,
       name: cvmbs2Row?.display_name ?? '',
       department_id: cvmbs2Row?.department_id ?? null,
+      email: cvmbs2Row?.email ?? '',
     },
     mentor_external: loadExternalMentor(externalRow ?? null),
     coauthors: coauthorRows.map((c, i) => ({
@@ -200,6 +209,7 @@ function deserialize(initial: SubmissionInput): FormState {
       name: c.display_name ?? '',
       department_id: c.department_id ?? null,
       affiliation: c.affiliation ?? '',
+      email: c.email ?? '',
     })),
   }
 }
@@ -231,7 +241,7 @@ function serializeAuthors(state: FormState): AuthorInput[] {
         profile_id: null,
         faculty_id: null,
         display_name: c.name.trim(),
-        email: null,
+        email: c.email.trim().toLowerCase() || null,
         department_id: c.department_id,
         affiliation: c.affiliation.trim() || null,
         is_presenter: false,
@@ -247,7 +257,7 @@ function serializeAuthors(state: FormState): AuthorInput[] {
       profile_id: null,
       faculty_id: null,
       display_name: state.mentor_external.name.trim(),
-      email: null,
+      email: state.mentor_external.email.trim().toLowerCase() || null,
       department_id: state.mentor_external.department_id,
       affiliation: state.mentor_external.affiliation.trim() || null,
       is_presenter: false,
@@ -263,7 +273,11 @@ function serializeAuthors(state: FormState): AuthorInput[] {
         profile_id: null,
         faculty_id: m.mode === 'picker' ? m.faculty_id : null,
         display_name: m.name.trim() || null,
-        email: null,
+        // Not-listed carries a user-typed email; picker mode leaves it null
+        // (faculty roster is the source of truth for linked faculty emails).
+        email: m.mode === 'not_listed'
+          ? (m.email.trim().toLowerCase() || null)
+          : null,
         // Only carry dept when the person typed a name (not_listed); when
         // linked via the picker the dept comes from the linked faculty row.
         department_id: m.mode === 'not_listed' ? m.department_id : null,
@@ -281,22 +295,25 @@ function serializeAuthors(state: FormState): AuthorInput[] {
 // `department_id` columns; fall back to parsing the legacy " · " suffix out
 // of display_name for any pre-migration drafts.
 function loadExternalMentor(row: AuthorInput | null): MentorExternalState {
-  if (!row) return { name: '', department_id: null, affiliation: '' }
+  if (!row) return { name: '', department_id: null, affiliation: '', email: '' }
   const raw = row.display_name ?? ''
+  const email = row.email ?? ''
   const hasNewShape = !!row.affiliation || !!row.department_id
   if (hasNewShape) {
     return {
       name: raw,
       department_id: row.department_id ?? null,
       affiliation: row.affiliation ?? '',
+      email,
     }
   }
   const idx = raw.indexOf(LEGACY_OTHER_MENTOR_SEP)
-  if (idx === -1) return { name: raw, department_id: null, affiliation: '' }
+  if (idx === -1) return { name: raw, department_id: null, affiliation: '', email }
   return {
     name: raw.slice(0, idx),
     department_id: null,
     affiliation: raw.slice(idx + LEGACY_OTHER_MENTOR_SEP.length),
+    email,
   }
 }
 
@@ -308,6 +325,74 @@ function computeBylineNames(state: FormState): string[] {
     state.mentor_cvmbs_2.name.trim(),
     state.mentor_cvmbs_1.name.trim(),
   ].filter(Boolean)
+}
+
+/**
+ * Flatten the form's author state into the shape the Green Labs cert section
+ * expects. Only authors with a name make it in — empty slots are hidden.
+ * Emails come from the state directly for coauthors + mentors, from the
+ * faculty roster for linked CVMBS mentors (via facultyOptions lookup).
+ */
+function computeAuthorRows(
+  state: FormState,
+  facultyOptions: FacultyOption[]
+): AuthorRow[] {
+  const rows: AuthorRow[] = []
+
+  if (state.presenter.name.trim()) {
+    const parts = state.presenter.name.trim().split(/\s+/)
+    rows.push({
+      key: 'presenter',
+      name: state.presenter.name.trim(),
+      email: state.presenter.email.trim(),
+      roleLabel: 'Presenter',
+      firstName: parts[0] ?? null,
+      lastName: parts.slice(1).join(' ') || null,
+    })
+  }
+
+  state.coauthors.forEach((c, i) => {
+    if (!c.name.trim()) return
+    rows.push({
+      key: `co-${i}-${c.key}`,
+      name: c.name.trim(),
+      email: c.email.trim(),
+      roleLabel: 'Coauthor',
+    })
+  })
+
+  const cvmbsMentors: [MentorCvmbsState, string][] = [
+    [state.mentor_cvmbs_1, 'mentor-cvmbs-1'],
+    [state.mentor_cvmbs_2, 'mentor-cvmbs-2'],
+  ]
+  for (const [m, key] of cvmbsMentors) {
+    if (!m.name.trim() && !(m.mode === 'picker' && m.faculty_id)) continue
+    const linkedFaculty =
+      m.mode === 'picker' && m.faculty_id
+        ? facultyOptions.find((f) => f.id === m.faculty_id) ?? null
+        : null
+    const email =
+      m.mode === 'picker'
+        ? linkedFaculty?.email ?? ''
+        : m.email.trim()
+    rows.push({
+      key,
+      name: m.name.trim() || linkedFaculty?.full_name || '',
+      email,
+      roleLabel: 'Mentor',
+    })
+  }
+
+  if (state.mentor_external.name.trim()) {
+    rows.push({
+      key: 'mentor-external',
+      name: state.mentor_external.name.trim(),
+      email: state.mentor_external.email.trim(),
+      roleLabel: 'Mentor',
+    })
+  }
+
+  return rows
 }
 
 function validate(state: FormState): string | null {
@@ -421,6 +506,8 @@ export function SubmitForm(props: Props) {
 
   const bylineNames = computeBylineNames(state)
   const bylinePreview = bylineNames.join(', ')
+
+  const authorRows = computeAuthorRows(state, props.facultyOptions)
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
@@ -564,14 +651,6 @@ export function SubmitForm(props: Props) {
             disabled={disabled}
           />
         </Field>
-        {props.currentUser && !props.adminView && (
-          <AmbassadorUpload
-            userProfileId={props.currentUser.profileId}
-            userEmail={props.currentUser.email}
-            initialCert={props.currentUserAmbassadorCert ?? null}
-            disabled={disabled}
-          />
-        )}
       </Section>
 
       <Section
@@ -693,6 +772,19 @@ export function SubmitForm(props: Props) {
           </p>
         </div>
       </Section>
+
+      {props.currentUser && !props.adminView && (
+        <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 space-y-4">
+          <AuthorCertsHeader />
+          <AuthorCertsSection
+            authors={authorRows}
+            initialCerts={props.initialAmbassadorCerts ?? {}}
+            currentUserId={props.currentUser.profileId}
+            currentUserEmail={props.currentUser.email}
+            disabled={disabled}
+          />
+        </section>
+      )}
 
       <Section title="Abstract">
         <Field

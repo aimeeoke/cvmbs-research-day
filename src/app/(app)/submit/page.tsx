@@ -44,7 +44,7 @@ export default async function SubmitPage({
     supabase
       .from('faculty')
       .select(
-        'id, full_name, is_active, my_green_labs_certified, green_paw_certified, department_id, departments(name)'
+        'id, full_name, email, is_active, my_green_labs_certified, green_paw_certified, department_id, departments(name)'
       )
       .eq('is_active', true)
       .order('full_name'),
@@ -88,38 +88,9 @@ export default async function SubmitPage({
       full_name: f.full_name,
       department_name: dept?.name ?? null,
       green_labs_certified: !!(f.my_green_labs_certified || f.green_paw_certified),
+      email: (f as { email?: string | null }).email ?? null,
     }
   })
-
-  // Signed-in user's Green Labs Ambassador cert (if any). Match by
-  // profile_id OR by email — the CSV loader keys pre-loaded rows by email
-  // without a profile_id, so an email match picks those up. Ordered
-  // pre-verified first (source='csv_import' typically arrives verified),
-  // then most recently uploaded.
-  const userEmailLc = (user.email ?? '').toLowerCase()
-  const { data: certRows } = await supabase
-    .from('certifications')
-    .select('id, source, storage_path, verified_at, valid_through, uploaded_at, profile_id, email')
-    .eq('kind', 'ambassador')
-    .or(
-      userEmailLc
-        ? `profile_id.eq.${user.id},email.eq.${userEmailLc}`
-        : `profile_id.eq.${user.id}`
-    )
-    .order('verified_at', { ascending: false, nullsFirst: false })
-    .order('uploaded_at', { ascending: false })
-    .limit(1)
-
-  const currentUserAmbassadorCert: UserAmbassadorCert | null = certRows?.[0]
-    ? {
-        id: certRows[0].id as string,
-        source: certRows[0].source as UserAmbassadorCert['source'],
-        storage_path: (certRows[0].storage_path as string | null) ?? null,
-        verified_at: (certRows[0].verified_at as string | null) ?? null,
-        valid_through: (certRows[0].valid_through as string | null) ?? null,
-        uploaded_at: certRows[0].uploaded_at as string,
-      }
-    : null
 
   const now = Date.now()
   const finalizeDeadline = event.finalize_deadline_at
@@ -178,6 +149,54 @@ export default async function SubmitPage({
     authors: initialAuthors,
   }
 
+  // Collect every email attached to this abstract's authors (plus any
+  // linked-faculty emails looked up from the roster) so the Green Labs
+  // cert section can pre-populate status for all of them in one query.
+  const authorEmails = new Set<string>()
+  const userEmailLc = (user.email ?? '').toLowerCase()
+  if (userEmailLc) authorEmails.add(userEmailLc)
+  for (const a of initialAuthors) {
+    const e = (a.email ?? '').trim().toLowerCase()
+    if (e) authorEmails.add(e)
+    if (a.faculty_id) {
+      const f = facultyOptions.find((fo) => fo.id === a.faculty_id)
+      const fe = (f?.email ?? '').trim().toLowerCase()
+      if (fe) authorEmails.add(fe)
+    }
+  }
+
+  let initialAmbassadorCerts: Record<string, UserAmbassadorCert> = {}
+  if (authorEmails.size > 0) {
+    const emailList = Array.from(authorEmails)
+    // ILIKE-list via OR — Supabase JS doesn't have a case-insensitive `in`.
+    const orClause = emailList.map((e) => `email.ilike.${e}`).join(',')
+    const { data: certRows } = await supabase
+      .from('certifications')
+      .select(
+        'id, source, storage_path, verified_at, valid_through, uploaded_at, uploaded_by, email, profile_id'
+      )
+      .eq('kind', 'ambassador')
+      .or(orClause)
+      .order('verified_at', { ascending: false, nullsFirst: false })
+      .order('uploaded_at', { ascending: false })
+
+    for (const row of certRows ?? []) {
+      const key = ((row.email as string | null) ?? '').toLowerCase()
+      if (!key || initialAmbassadorCerts[key]) continue // keep first (highest-priority)
+      initialAmbassadorCerts[key] = {
+        id: row.id as string,
+        source: row.source as UserAmbassadorCert['source'],
+        storage_path: (row.storage_path as string | null) ?? null,
+        verified_at: (row.verified_at as string | null) ?? null,
+        valid_through: (row.valid_through as string | null) ?? null,
+        uploaded_at: row.uploaded_at as string,
+        uploaded_by: (row.uploaded_by as string | null) ?? null,
+        email: (row.email as string | null) ?? null,
+        profile_id: (row.profile_id as string | null) ?? null,
+      }
+    }
+  }
+
   return (
     <SubmitForm
       submissionId={submission.id}
@@ -197,7 +216,7 @@ export default async function SubmitPage({
           ? { profileId: user.id, email: user.email }
           : null
       }
-      currentUserAmbassadorCert={currentUserAmbassadorCert}
+      initialAmbassadorCerts={initialAmbassadorCerts}
     />
   )
 }

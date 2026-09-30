@@ -18,10 +18,11 @@ export async function startNewSubmission(role: SubmitterRole = 'submitter') {
 }
 
 /**
- * Delete a draft that hasn't been submitted yet. RLS restricts this to the
- * submitter of the row and only while status='draft'.
+ * Delete a submission the current user owns. Works for both draft and
+ * submitted statuses — RLS + the .in() filter here both allow either.
+ * Finalized/withdrawn require the withdrawal-request flow instead.
  */
-export async function deleteDraftSubmission(submissionId: string) {
+export async function deleteOwnSubmission(submissionId: string) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -32,7 +33,7 @@ export async function deleteDraftSubmission(submissionId: string) {
     .from('submissions')
     .delete()
     .eq('id', submissionId)
-    .eq('status', 'draft')
+    .in('status', ['draft', 'submitted'])
 
   if (error) throw new Error(error.message)
   revalidatePath('/abstracts')
@@ -40,8 +41,10 @@ export async function deleteDraftSubmission(submissionId: string) {
 }
 
 /**
- * Ask an admin to withdraw a submitted or finalized abstract. This only
- * sets a timestamp; an admin still has to flip status='withdrawn'.
+ * Ask an admin to withdraw a FINALIZED abstract. Pre-finalize the submitter
+ * can just delete it themselves (see deleteOwnSubmission). Post-finalize the
+ * abstract is in the printed program / judge assignments, so admin gates
+ * the removal.
  */
 export async function requestWithdrawal(submissionId: string, reason: string) {
   const supabase = await createClient()
@@ -60,7 +63,7 @@ export async function requestWithdrawal(submissionId: string, reason: string) {
       withdrawal_requested_reason: trimmed,
     })
     .eq('id', submissionId)
-    .in('status', ['submitted', 'finalized'])
+    .eq('status', 'finalized')
 
   if (error) throw new Error(error.message)
   revalidatePath('/abstracts')

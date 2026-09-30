@@ -35,7 +35,7 @@ export default async function AdminAbstractDetail({
     supabase
       .from('faculty')
       .select(
-        'id, full_name, is_active, my_green_labs_certified, green_paw_certified, department_id, departments(name)'
+        'id, full_name, email, is_active, my_green_labs_certified, green_paw_certified, department_id, departments(name)'
       )
       .eq('is_active', true)
       .order('full_name'),
@@ -72,6 +72,7 @@ export default async function AdminAbstractDetail({
       full_name: f.full_name,
       department_name: dept?.name ?? null,
       green_labs_certified: !!(f.my_green_labs_certified || f.green_paw_certified),
+      email: (f as { email?: string | null }).email ?? null,
     }
   })
 

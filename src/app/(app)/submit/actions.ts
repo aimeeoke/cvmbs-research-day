@@ -284,10 +284,10 @@ export async function finalizeSubmission(submissionId: string, input: Submission
 }
 
 // -------- Green Labs Ambassador cert --------
-// These actions belong here (rather than a separate certifications module)
-// because the Presenter section of the submit form is the only place that
-// currently calls them. If we grow more cert workflows (per-author uploads,
-// admin verification tool), pull them into src/lib/certifications.ts.
+// Per-author uploads: any signed-in user can upload a cert on behalf of any
+// person identified by email (their own or a coauthor's). Auto-links to the
+// person's profile if there's an email match. Handles the replace-in-place
+// and delete flows for unverified rows.
 
 export type UserAmbassadorCert = {
   id: string
@@ -296,60 +296,101 @@ export type UserAmbassadorCert = {
   verified_at: string | null
   valid_through: string | null
   uploaded_at: string
+  uploaded_by: string | null
+  email: string | null
+  profile_id: string | null
 }
 
 /**
- * Record (or replace) the signed-in user's Green Labs Ambassador cert.
- * The file is already uploaded to Storage via uploadCertification() — this
- * action just writes the metadata row and cleans up any prior file.
+ * Record (or replace) an ambassador cert keyed by email. Used both for the
+ * signed-in user uploading their own cert and for a submitter uploading on
+ * behalf of a coauthor. The file is already in Storage via
+ * uploadCertification() — this action just writes the metadata row.
  *
- * Returns the new/updated row so the client can update its UI without a
- * refetch.
+ * Semantics:
+ *   * If a VERIFIED cert exists for this email → refuse; caller must ask admin.
+ *   * If an UNVERIFIED user_upload exists and current user owns it → replace
+ *     (delete old file, update the row).
+ *   * If an UNVERIFIED user_upload exists but a different uploader made it →
+ *     refuse; keeps other people from silently overwriting each other's
+ *     uploads pre-verification.
+ *   * Otherwise → insert a fresh row.
+ *
+ * profile_id gets auto-linked when the email matches an existing profile.
  */
-export async function recordAmbassadorCert(args: {
+export async function recordAmbassadorCertForEmail(args: {
+  email: string
+  firstName?: string | null
+  lastName?: string | null
   storagePath: string
 }): Promise<{ cert: UserAmbassadorCert }> {
   const { supabase, user } = await requireUser()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('email, first_name, last_name')
-    .eq('id', user.id)
-    .maybeSingle()
+  const email = args.email.trim().toLowerCase()
+  if (!email) throw new Error('Email is required to record a cert.')
 
-  if (!profile?.email) {
-    throw new Error('Your profile is missing an email — cannot record cert.')
-  }
-
-  // Replace any existing user_upload cert for this user (one at a time).
-  // We look up by uploaded_by so we don't clobber a CSV row that happens
-  // to share this user's email — a CSV row's source is 'csv_import' and
-  // it wouldn't have this user as uploaded_by anyway.
+  // Look up any existing cert for this email — kind='ambassador' is the only
+  // kind this action handles. Case-insensitive match to catch CSV rows that
+  // may have been written with different casing.
   const { data: existing } = await supabase
     .from('certifications')
-    .select('id, storage_path')
+    .select('id, storage_path, verified_at, source, uploaded_by')
     .eq('kind', 'ambassador')
-    .eq('source', 'user_upload')
-    .eq('uploaded_by', user.id)
+    .ilike('email', email)
     .maybeSingle()
 
+  if (existing?.verified_at) {
+    throw new Error(
+      'This person already has a verified ambassador cert. Contact admin if you need to replace it.'
+    )
+  }
+  if (
+    existing &&
+    existing.source === 'user_upload' &&
+    existing.uploaded_by !== user.id
+  ) {
+    throw new Error(
+      'Someone else already uploaded a cert for this email (pending review). Contact admin to reset it.'
+    )
+  }
+
+  // Auto-link to profile if one exists with this email — matches the CSV
+  // loader pattern so pre-loaded rows fold naturally into the profile once
+  // that person signs up.
+  const { data: matchProfile } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name')
+    .ilike('email', email)
+    .maybeSingle()
+
+  const firstName = args.firstName?.trim() || matchProfile?.first_name || null
+  const lastName = args.lastName?.trim() || matchProfile?.last_name || null
+
   if (existing) {
-    // Delete the old PDF from storage so we don't leak orphans.
+    // Replace — delete the old PDF (if it changed) and update the row.
     if (existing.storage_path && existing.storage_path !== args.storagePath) {
-      await supabase.storage.from('certifications').remove([existing.storage_path])
+      await supabase.storage
+        .from('certifications')
+        .remove([existing.storage_path])
     }
     const { data: updated, error } = await supabase
       .from('certifications')
       .update({
         storage_path: args.storagePath,
-        // Re-uploading resets verification — admin must re-approve.
+        source: 'user_upload',
+        profile_id: matchProfile?.id ?? null,
+        first_name: firstName,
+        last_name: lastName,
+        email,
         verified_at: null,
         verified_by: null,
         uploaded_by: user.id,
         uploaded_at: new Date().toISOString(),
       })
       .eq('id', existing.id)
-      .select('id, source, storage_path, verified_at, valid_through, uploaded_at')
+      .select(
+        'id, source, storage_path, verified_at, valid_through, uploaded_at, uploaded_by, email, profile_id'
+      )
       .single()
     if (error) throw new Error(error.message)
     revalidatePath('/submit')
@@ -361,15 +402,17 @@ export async function recordAmbassadorCert(args: {
     .from('certifications')
     .insert({
       kind: 'ambassador',
-      profile_id: user.id,
-      first_name: profile.first_name,
-      last_name: profile.last_name,
-      email: profile.email.toLowerCase(),
+      profile_id: matchProfile?.id ?? null,
+      first_name: firstName,
+      last_name: lastName,
+      email,
       source: 'user_upload',
       storage_path: args.storagePath,
       uploaded_by: user.id,
     })
-    .select('id, source, storage_path, verified_at, valid_through, uploaded_at')
+    .select(
+      'id, source, storage_path, verified_at, valid_through, uploaded_at, uploaded_by, email, profile_id'
+    )
     .single()
 
   if (error) throw new Error(error.message)
@@ -379,25 +422,33 @@ export async function recordAmbassadorCert(args: {
 }
 
 /**
- * Remove the signed-in user's unverified ambassador upload. Deletes the
- * storage file too. Only works on rows the user uploaded and admin hasn't
- * yet verified — RLS enforces both. No-op if there's nothing to remove.
+ * Remove an unverified user_upload cert keyed by email. Only works if the
+ * signed-in user was the original uploader — RLS also enforces this. No-op
+ * if there's nothing to remove.
  */
-export async function deleteAmbassadorCert(): Promise<{ ok: true }> {
+export async function deleteAmbassadorCertForEmail(email: string): Promise<{ ok: true }> {
   const { supabase, user } = await requireUser()
+
+  const cleaned = email.trim().toLowerCase()
+  if (!cleaned) throw new Error('Email is required.')
 
   const { data: existing } = await supabase
     .from('certifications')
-    .select('id, storage_path, verified_at')
+    .select('id, storage_path, verified_at, uploaded_by')
     .eq('kind', 'ambassador')
     .eq('source', 'user_upload')
-    .eq('uploaded_by', user.id)
+    .ilike('email', cleaned)
     .maybeSingle()
 
   if (!existing) return { ok: true }
   if (existing.verified_at) {
     throw new Error(
       'This certification has been verified by an admin — contact them to remove it.'
+    )
+  }
+  if (existing.uploaded_by !== user.id) {
+    throw new Error(
+      "You can't remove a cert someone else uploaded. Contact admin to reset it."
     )
   }
 

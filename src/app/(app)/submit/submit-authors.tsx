@@ -12,6 +12,9 @@ export type FacultyOption = {
   full_name: string
   department_name: string | null
   green_labs_certified: boolean
+  // Used by AuthorCertsSection to look up a linked mentor's email for
+  // Green Labs cert credit. May be null if the faculty row has no email.
+  email: string | null
 }
 
 // Per-author affiliation. Either department_id (CVMBS dept UUID) OR affiliation
@@ -38,12 +41,17 @@ export type MentorCvmbsState = {
   // yet in the faculty roster. Ignored when linked via the picker (department
   // comes from the linked faculty row).
   department_id: string | null
+  // Optional; only needed to enable Green Labs Ambassador cert credit.
+  // Ignored in picker mode (faculty roster carries the email).
+  email: string
 }
 
 export type MentorExternalState = {
   name: string
   department_id: string | null
   affiliation: string
+  // Optional; needed for Green Labs Ambassador cert credit.
+  email: string
 }
 
 export type CoauthorState = {
@@ -51,6 +59,8 @@ export type CoauthorState = {
   name: string
   department_id: string | null
   affiliation: string
+  // Optional; needed for Green Labs Ambassador cert credit.
+  email: string
 }
 
 /**
@@ -327,6 +337,14 @@ export function CvmbsMentorSlot({
             placeholder="Full name (e.g. Dr. Jane A. Doe)"
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
           />
+          <input
+            type="email"
+            value={value.email}
+            disabled={disabled}
+            onChange={(e) => onChange({ email: e.target.value })}
+            placeholder="Email (optional — enables Green Labs cert credit)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
+          />
           <div>
             <div className="text-xs font-medium text-gray-600 mb-1">
               Department
@@ -368,6 +386,14 @@ export function ExternalMentorSlot({
         disabled={disabled}
         onChange={(e) => onChange({ name: e.target.value })}
         placeholder="Full name (e.g. Alex Chen)"
+        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
+      />
+      <input
+        type="email"
+        value={value.email}
+        disabled={disabled}
+        onChange={(e) => onChange({ email: e.target.value })}
+        placeholder="Email (optional — enables Green Labs cert credit)"
         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
       />
       <div>
@@ -419,6 +445,7 @@ export function CoauthorList({
         name: '',
         department_id: null,
         affiliation: '',
+        email: '',
       },
     ])
   const move = (idx: number, dir: -1 | 1) => {
@@ -483,7 +510,15 @@ export function CoauthorList({
               <X size={14} />
             </button>
           </div>
-          <div className="pl-9">
+          <div className="pl-9 space-y-2">
+            <input
+              type="email"
+              value={c.email}
+              disabled={disabled}
+              onChange={(e) => update(idx, { email: e.target.value })}
+              placeholder="Email (optional — enables Green Labs cert credit)"
+              className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1E4D2B] focus:border-[#1E4D2B]"
+            />
             <AuthorAffiliationPicker
               value={{ department_id: c.department_id, affiliation: c.affiliation }}
               onChange={(p) =>

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Trash2, AlertTriangle, Loader2, X } from 'lucide-react'
 import type { SubmissionStatus } from '@/lib/types/database'
-import { deleteDraftSubmission, requestWithdrawal } from './actions'
+import { deleteOwnSubmission, requestWithdrawal } from './actions'
 
 export function RowActions({
   submissionId,
@@ -21,9 +21,10 @@ export function RowActions({
 }) {
   const [modal, setModal] = useState<'delete' | 'withdraw' | null>(null)
 
-  const canDelete = isSubmitter && status === 'draft'
+  const canDelete =
+    isSubmitter && (status === 'draft' || status === 'submitted')
   const canRequestWithdrawal =
-    !withdrawalRequestedAt && (status === 'submitted' || status === 'finalized')
+    isSubmitter && !withdrawalRequestedAt && status === 'finalized'
 
   return (
     <div className="flex items-center justify-end gap-2">
@@ -38,7 +39,7 @@ export function RowActions({
           type="button"
           onClick={() => setModal('delete')}
           className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-50"
-          title="Delete draft"
+          title="Delete submission"
         >
           <Trash2 size={14} />
         </button>
@@ -84,7 +85,7 @@ function DeleteModal({
     setError(null)
     startTransition(async () => {
       try {
-        await deleteDraftSubmission(submissionId)
+        await deleteOwnSubmission(submissionId)
         onClose()
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not delete.')
@@ -93,10 +94,10 @@ function DeleteModal({
   }
 
   return (
-    <ModalShell onClose={onClose} title="Delete draft?">
+    <ModalShell onClose={onClose} title="Delete this submission?">
       <p className="text-sm text-gray-700">
-        This permanently deletes the draft, including its authors. This action
-        can&apos;t be undone. Are you sure?
+        This permanently deletes the abstract, including all authors and any
+        uploaded files. This action can&apos;t be undone. Are you sure?
       </p>
       {error && (
         <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 mt-3">{error}</div>
@@ -116,7 +117,7 @@ function DeleteModal({
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
         >
           {isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-          Delete draft
+          Delete submission
         </button>
       </div>
     </ModalShell>
@@ -171,9 +172,9 @@ function WithdrawModal({
       ) : (
         <>
           <p className="text-sm text-gray-700">
-            A submitted abstract can&apos;t be self-deleted because it may affect
-            counts and downstream planning. Instead, an admin will review your
-            request and remove it if appropriate.
+            After finalize + lock, the abstract is in the printed program and
+            judge assignments — admin has to review before removing it. Please
+            add a short reason so they can approve quickly.
           </p>
           <label className="block text-sm font-medium text-gray-700 mt-3">
             Reason

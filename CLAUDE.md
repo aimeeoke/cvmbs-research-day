@@ -265,17 +265,33 @@ A unified conference management platform for Colorado State University's College
       Supersedes the pre-existing boolean flags on `profiles` and
       `faculty` — those stay for now but new code should read from
       this table.
-- [x] **Ambassador cert upload on submit form (Sep 29, 2026).** New
-      `AmbassadorUpload` widget in the Presenter section: signed-in
-      user only, four states (pre-loaded from CSV / uploaded+verified
-      / uploaded+pending / none), file → Storage bucket → server action
-      writes the cert row. Replace flow deletes the old PDF before
-      uploading the new one. Remove flow deletes both row and PDF
-      (blocked once admin verifies). Also shipped a small RLS
-      addendum (`2026-09-29_certifications_self_manage.sql`) letting
-      the uploader manage their own row while `verified_at IS NULL`.
-      No coauthor/mentor upload flow yet — that needs per-author email
-      capture first.
+- [x] ~~**Ambassador cert upload on submit form** (Sep 29, 2026 AM).~~
+      Superseded — the presenter-only widget is replaced by the
+      per-author section below.
+- [x] **Per-author Ambassador certs (Sep 29, 2026 PM).** New "Green
+      Labs Ambassador certifications" section on the submit form
+      (between Authors and Abstract). Iterates over every named
+      author on the abstract (presenter, coauthors, mentors — CVMBS
+      linked mentors use the roster email, non-listed / external
+      mentors + coauthors need an email typed on their author row).
+      Each row: status badge (Certified from pre-loaded list / Verified /
+      Pending review / Not registered), Upload / Replace / Remove
+      actions, and a running total at the bottom (10 pts per certified
+      author, capped at 100 for the Green Pipette race). Server action
+      `recordAmbassadorCertForEmail` handles both self-upload and
+      submitter-uploading-on-behalf-of-coauthor. Old `ambassador-upload.tsx`
+      deleted. Also added optional email fields to CoauthorState,
+      MentorCvmbsState (not_listed mode), MentorExternalState so
+      submitters can capture emails inline.
+- [x] **Self-delete widened to submitted (Sep 29, 2026 PM).**
+      Migration `2026-09-29_owner_delete_submitted.sql` relaxes the
+      RLS from status='draft' to status IN ('draft','submitted').
+      Submitters can now delete their own abstract while it's still
+      pre-finalize; the withdrawal-request flow (admin-approved) only
+      fires for finalized rows, since post-finalize the abstract is
+      in the printed program + judge assignments. `deleteDraftSubmission`
+      renamed → `deleteOwnSubmission`; modal copy updated
+      ("Delete submission?" instead of "Delete draft?").
 
 ### Rich text pattern (Sep 29, 2026)
 Reusable across projects — the pattern is: (a) TipTap-backed editor with a
@@ -353,6 +369,7 @@ Applied here for Green Labs certification PDFs.
 8. `supabase/migrations/2026-09-29_certifications_bucket.sql` — Sep 29, 2026 — certifications Storage bucket + RLS
 9. `supabase/migrations/2026-09-29_certifications_table.sql` — Sep 29, 2026 — certifications DB table (backs the bucket with typed metadata)
 10. `supabase/migrations/2026-09-29_certifications_self_manage.sql` — Sep 29, 2026 — RLS addendum: uploader can manage own unverified cert
+11. `supabase/migrations/2026-09-29_owner_delete_submitted.sql` — Sep 29, 2026 — self-delete widened to include submitted (only finalized still needs withdrawal request)
 
 ### Deploy
 - [x] **Sep 28, 2026 — Vercel cutover done.** `researchday.vercel.app`

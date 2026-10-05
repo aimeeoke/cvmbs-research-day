@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 import type {
   PreferredPresentationType,
   SessionPreference,
@@ -11,6 +12,8 @@ import type {
   SubmissionInput,
 } from '../../../submit/actions'
 import type { FacultyOption } from '../../../submit/submit-authors'
+import { richTextToPlainText } from '@/lib/rich-text'
+import { AdminDeleteButton } from '../admin-delete-button'
 
 export const metadata = { title: 'Abstract · Admin' }
 
@@ -23,6 +26,7 @@ export default async function AdminAbstractDetail({
 }) {
   const { id } = await params
   const supabase = await createClient()
+  const currentUser = await getCurrentUser()
 
   const [
     { data: event },
@@ -129,15 +133,30 @@ export default async function AdminAbstractDetail({
   const withdrawalPending =
     submission.withdrawal_requested_at && submission.status !== 'withdrawn'
 
+  const titlePlain = richTextToPlainText(submission.title ?? '').trim()
+  const presenter = (submission as { submission_authors?: Array<{ display_name: string | null; is_presenter: boolean }> })
+    .submission_authors?.find((a) => a.is_presenter)
+  const deleteLabel = `${titlePlain || 'Untitled draft'}${presenter?.display_name ? ` — ${presenter.display_name}` : ''}`
+
   return (
     <div>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-4">
-        <Link
-          href="/admin/abstracts"
-          className="text-xs text-gray-500 hover:text-gray-700 underline"
-        >
-          ← Back to abstracts
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/admin/abstracts"
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            ← Back to abstracts
+          </Link>
+          {currentUser?.isAdmin && (
+            <AdminDeleteButton
+              submissionId={submission.id}
+              label={deleteLabel}
+              variant="full"
+              redirectTo="/admin/abstracts"
+            />
+          )}
+        </div>
         {withdrawalPending && (
           <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             <strong>Withdrawal requested.</strong>{' '}

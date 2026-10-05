@@ -6,6 +6,7 @@ import { Search } from 'lucide-react'
 import type { SubmissionStatus } from '@/lib/types/database'
 import { RichTextView } from '@/components/rich-text-view'
 import { richTextIsEmpty, richTextToPlainText } from '@/lib/rich-text'
+import { AdminDeleteButton } from './admin-delete-button'
 
 export type BrowserRow = {
   id: string
@@ -39,6 +40,7 @@ export function AbstractsBrowser({
   initialDept,
   initialSession,
   initialQuery,
+  isAdmin,
 }: {
   rows: BrowserRow[]
   departments: Department[]
@@ -46,6 +48,8 @@ export function AbstractsBrowser({
   initialDept: string
   initialSession: string
   initialQuery: string
+  /** True admin — not committee. Gates the per-row delete button. */
+  isAdmin: boolean
 }) {
   const [statusF, setStatusF] = useState(initialStatus)
   const [deptF, setDeptF] = useState(initialDept)
@@ -151,6 +155,9 @@ export function AbstractsBrowser({
                   Session pref
                 </th>
                 <th className="px-3 py-2 text-right font-semibold">Updated</th>
+                {isAdmin && (
+                  <th className="px-3 py-2 text-right font-semibold w-10"></th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -213,6 +220,14 @@ export function AbstractsBrowser({
                       r.finalized_at ?? r.submitted_at ?? r.created_at
                     )}
                   </td>
+                  {isAdmin && (
+                    <td className="px-3 py-2 align-top text-right">
+                      <AdminDeleteButton
+                        submissionId={r.id}
+                        label={deleteLabel(r)}
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -271,6 +286,13 @@ function StatusPill({ status }: { status: SubmissionStatus }) {
       {label}
     </span>
   )
+}
+
+function deleteLabel(r: BrowserRow): string {
+  const titlePlain = richTextToPlainText(r.title).trim()
+  const title = titlePlain || 'Untitled draft'
+  const presenter = r.presenter_name?.trim()
+  return presenter ? `${title} — ${presenter}` : title
 }
 
 function formatShort(s: string | null): string {

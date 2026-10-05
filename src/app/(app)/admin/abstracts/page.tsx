@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 import type { SubmissionStatus } from '@/lib/types/database'
 import { AbstractsBrowser, type BrowserRow } from './abstracts-browser'
 
@@ -27,6 +28,7 @@ export default async function AdminAbstractsPage({
 }) {
   const params = await searchParams
   const supabase = await createClient()
+  const currentUser = await getCurrentUser()
 
   const [{ data: departments }, { data: submissionsRaw, error }] =
     await Promise.all([
@@ -191,6 +193,7 @@ export default async function AdminAbstractsPage({
         initialDept={params.dept ?? ''}
         initialSession={params.session ?? ''}
         initialQuery={params.q ?? ''}
+        isAdmin={currentUser?.isAdmin ?? false}
       />
     </div>
   )

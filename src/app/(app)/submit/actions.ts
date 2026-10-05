@@ -92,21 +92,25 @@ export async function createDraftSubmission(
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() ||
     null
 
-  const { data: created, error } = await supabase
-    .from('submissions')
-    .insert({
-      event_id: event.id,
-      submitter_id: user.id,
-      status: 'draft',
-    })
-    .select('id')
-    .single()
+  // Supply the id client-side so the INSERT doesn't need RETURNING. Chaining
+  // `.select()` on an insert makes PostgREST do INSERT ... RETURNING, which in
+  // turn makes the SELECT policy's SECURITY DEFINER STABLE helper evaluate
+  // against a pre-INSERT snapshot. The function can't see the row we're about
+  // to return, so PostgREST surfaces that as "new row violates RLS" — even
+  // though both the INSERT WITH CHECK and a plain SELECT would succeed.
+  const newId = crypto.randomUUID()
 
-  if (error || !created) throw new Error(error?.message ?? 'Failed to create draft')
+  const { error: insErr } = await supabase.from('submissions').insert({
+    id: newId,
+    event_id: event.id,
+    submitter_id: user.id,
+    status: 'draft',
+  })
+  if (insErr) throw new Error(insErr.message)
 
   if (role === 'presenter' || role === 'mentor') {
     const { error: seedErr } = await supabase.from('submission_authors').insert({
-      submission_id: created.id,
+      submission_id: newId,
       position: 1,
       profile_id: user.id,
       display_name: displayName,
@@ -117,7 +121,7 @@ export async function createDraftSubmission(
     if (seedErr) throw new Error(seedErr.message)
   }
 
-  return created.id
+  return newId
 }
 
 async function persistSubmission(

@@ -63,19 +63,24 @@ export function computePhase(
   return 'pre_race'
 }
 
-// Human-readable subheading per phase. Pulled verbatim from Part 3.2 so the
-// committee doc and the page agree.
-export function phaseSubheading(phase: LeaderboardPhase): string {
+// Human-readable subheading per phase. Mostly verbatim from Part 3.2 so the
+// committee doc and the page agree; the champions line swaps "crawlers!" for
+// "RAMS!" on the surface (the DCC original lives in the title/hover-tooltip
+// as an easter egg — see the hoverTitle field).
+export function phaseSubheading(phase: LeaderboardPhase): { text: string; hoverTitle?: string } {
   switch (phase) {
     case 'pre_race':
-      return 'The Guild Showdown has begun. ⚔️ The department races start November 18.'
+      return { text: 'The Guild Showdown has begun. ⚔️ The department races start November 18.' }
     case 'race_on':
-      return 'The race is on! Every abstract, every ambassador and every judge counts.'
+      return { text: 'The race is on! Every abstract, every ambassador and every judge counts.' }
     case 'event':
-      return "It's Research Day! 🔴 Scores drop at 11:30 and 2:00."
+      return { text: "It's Research Day! 🔴 Scores drop at 11:30 and 2:00." }
     case 'sealed':
-      return '🔒 Results sealed. Winners revealed at the awards ceremony!'
+      return { text: '🔒 Results sealed. Winners revealed at the awards ceremony!' }
     case 'champions':
-      return 'The pipettes have been awarded. Congratulations, crawlers! 🏆'
+      return {
+        text: 'The pipettes have been awarded. Congratulations, RAMS! 🏆',
+        hoverTitle: 'Congratulations, crawlers!',
+      }
   }
 }

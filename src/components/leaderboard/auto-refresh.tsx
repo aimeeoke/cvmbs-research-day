@@ -31,7 +31,7 @@ export default function AutoRefresh({ renderedAt, intervalSeconds = 60 }: Props)
   }, [router, intervalSeconds])
 
   return (
-    <p className="text-xs text-gray-500">
+    <p className="font-mono text-xs text-gray-500">
       {label ? `Last updated ${label}` : 'Last updated —'} · refreshes every {intervalSeconds} seconds
     </p>
   )

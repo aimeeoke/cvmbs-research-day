@@ -28,6 +28,7 @@ export default async function LeaderboardPage() {
     getGreenPipette(),
   ])
   const phase = computePhase(config, now)
+  const sub = phaseSubheading(phase)
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5">
@@ -39,8 +40,11 @@ export default async function LeaderboardPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-[#1E4D2B]">The Leaderboard</h1>
-            <p className="text-sm text-gray-700 mt-0.5">
-              {phaseSubheading(phase)}
+            <p
+              className="font-mono text-sm text-gray-700 mt-0.5"
+              title={sub.hoverTitle}
+            >
+              {sub.text}
             </p>
           </div>
         </div>

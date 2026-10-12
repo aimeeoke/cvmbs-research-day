@@ -36,7 +36,6 @@ export const publicNav: NavItem[] = [
     label: 'Leaderboard',
     icon: TrendingUp,
     match: startsWith('/leaderboard'),
-    badge: 'Soon',
   },
 ]
 

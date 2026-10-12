@@ -37,6 +37,7 @@ export default async function AdminLeaderboardPage() {
           split_mode: config.split_mode,
           show_thermometer: config.show_thermometer,
           show_guild_showdown: config.show_guild_showdown,
+          show_green_pipette: config.show_green_pipette,
         }}
       />
     </div>

@@ -5,9 +5,11 @@ import {
   phaseSubheading,
 } from '@/lib/leaderboard/config'
 import { getGuildCounts, getThermometerCount } from '@/lib/leaderboard/queries'
+import { getGreenPipette } from '@/lib/leaderboard/green-pipette'
 import AutoRefresh from '@/components/leaderboard/auto-refresh'
 import Thermometer from '@/components/leaderboard/thermometer'
 import GuildShowdown from '@/components/leaderboard/guild-showdown'
+import GreenPipette from '@/components/leaderboard/green-pipette'
 import HowToEarn from '@/components/leaderboard/how-to-earn'
 
 // Re-render data on every request. The AutoRefresh client component triggers
@@ -19,10 +21,11 @@ export const metadata = { title: 'Leaderboard · CVMBS Research Day' }
 
 export default async function LeaderboardPage() {
   const now = new Date()
-  const [config, thermometer, guilds] = await Promise.all([
+  const [config, thermometer, guilds, greenPipette] = await Promise.all([
     getLeaderboardConfig(),
     getThermometerCount(now),
     getGuildCounts(now),
+    getGreenPipette(),
   ])
   const phase = computePhase(config, now)
 
@@ -59,6 +62,8 @@ export default async function LeaderboardPage() {
         {config.show_guild_showdown && (
           <GuildShowdown counts={guilds.counts} />
         )}
+
+        {config.show_green_pipette && <GreenPipette result={greenPipette} />}
 
         <HowToEarn />
       </div>

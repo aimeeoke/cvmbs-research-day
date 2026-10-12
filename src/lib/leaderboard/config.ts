@@ -16,6 +16,7 @@ export type LeaderboardConfig = {
   split_mode: 'equal_by_department' | 'by_mentor'
   show_thermometer: boolean
   show_guild_showdown: boolean
+  show_green_pipette: boolean
 }
 
 // Phase names follow Part 3.2 of the leaderboard spec. "pre_race" and

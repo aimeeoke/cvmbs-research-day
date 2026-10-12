@@ -126,6 +126,11 @@ export default function LeaderboardConfigForm({ initial }: Props) {
           checked={state.show_guild_showdown}
           onChange={(v) => patch({ show_guild_showdown: v })}
         />
+        <CheckboxField
+          label="Show Green Pipette"
+          checked={state.show_green_pipette}
+          onChange={(v) => patch({ show_green_pipette: v })}
+        />
       </Section>
 
       <div className="flex justify-end border-t border-gray-200 pt-4">

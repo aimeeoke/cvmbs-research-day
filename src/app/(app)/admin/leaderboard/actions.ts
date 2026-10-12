@@ -16,6 +16,7 @@ export type LeaderboardConfigUpdate = {
   split_mode: 'equal_by_department' | 'by_mentor'
   show_thermometer: boolean
   show_guild_showdown: boolean
+  show_green_pipette: boolean
 }
 
 export async function updateLeaderboardConfig(

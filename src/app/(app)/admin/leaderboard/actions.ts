@@ -17,6 +17,11 @@ export type LeaderboardConfigUpdate = {
   show_thermometer: boolean
   show_guild_showdown: boolean
   show_green_pipette: boolean
+  guild_cohort_undergrad: number
+  guild_cohort_grad: number
+  guild_cohort_dvm: number
+  guild_cohort_postdoc_resident_intern: number
+  guild_cohort_staff: number
 }
 
 export async function updateLeaderboardConfig(

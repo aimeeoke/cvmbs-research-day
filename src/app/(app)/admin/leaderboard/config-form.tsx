@@ -115,6 +115,39 @@ export default function LeaderboardConfigForm({ initial }: Props) {
         </div>
       </Section>
 
+      <Section title="Guild Showdown — 2026 cohort sizes">
+        <p className="text-xs text-gray-600 col-span-full">
+          Each guild&apos;s rank is % of its 2026 cohort who have an abstract in,
+          so small guilds can win. Numbers below are the 2026 trainee counts
+          for each role group — update as 2027 rosters firm up.
+        </p>
+        <NumberField
+          label="Undergraduate Guild (undergrads + post-baccs)"
+          value={state.guild_cohort_undergrad}
+          onChange={(v) => patch({ guild_cohort_undergrad: v })}
+        />
+        <NumberField
+          label="Graduate Guild (MS, PhD, MD, MPH)"
+          value={state.guild_cohort_grad}
+          onChange={(v) => patch({ guild_cohort_grad: v })}
+        />
+        <NumberField
+          label="DVM Guild (incl. all dual-degrees)"
+          value={state.guild_cohort_dvm}
+          onChange={(v) => patch({ guild_cohort_dvm: v })}
+        />
+        <NumberField
+          label="Postdoc, Resident & Intern Guild"
+          value={state.guild_cohort_postdoc_resident_intern}
+          onChange={(v) => patch({ guild_cohort_postdoc_resident_intern: v })}
+        />
+        <NumberField
+          label="Research Staff Guild"
+          value={state.guild_cohort_staff}
+          onChange={(v) => patch({ guild_cohort_staff: v })}
+        />
+      </Section>
+
       <Section title="Feature flags">
         <CheckboxField
           label="Show submission thermometer"

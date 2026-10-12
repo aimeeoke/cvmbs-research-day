@@ -6,10 +6,12 @@ import {
 } from '@/lib/leaderboard/config'
 import { getGuildCounts, getThermometerCount } from '@/lib/leaderboard/queries'
 import { getGreenPipette } from '@/lib/leaderboard/green-pipette'
+import { getPlayerCardData } from '@/lib/leaderboard/player'
 import AutoRefresh from '@/components/leaderboard/auto-refresh'
 import Thermometer from '@/components/leaderboard/thermometer'
 import GuildShowdown from '@/components/leaderboard/guild-showdown'
 import GreenPipette from '@/components/leaderboard/green-pipette'
+import PlayerCard from '@/components/leaderboard/player-card'
 import HowToEarn from '@/components/leaderboard/how-to-earn'
 
 // Re-render data on every request. The AutoRefresh client component triggers
@@ -21,11 +23,12 @@ export const metadata = { title: 'Leaderboard · CVMBS Research Day' }
 
 export default async function LeaderboardPage() {
   const now = new Date()
-  const [config, thermometer, guilds, greenPipette] = await Promise.all([
+  const [config, thermometer, guilds, greenPipette, player] = await Promise.all([
     getLeaderboardConfig(),
     getThermometerCount(now),
     getGuildCounts(now),
     getGreenPipette(),
+    getPlayerCardData(),
   ])
   const phase = computePhase(config, now)
   const sub = phaseSubheading(phase)
@@ -54,6 +57,8 @@ export default async function LeaderboardPage() {
       {/* Competition cards. Each card is self-contained so adding one
           doesn't disturb the others. */}
       <div className="space-y-4">
+        {player && <PlayerCard data={player} />}
+
         {config.show_thermometer && (
           <Thermometer
             count={thermometer.count}

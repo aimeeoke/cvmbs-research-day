@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FileText, Inbox, Leaf, ShieldCheck, Users } from 'lucide-react'
+import { FileText, Inbox, Leaf, ShieldCheck, TrendingUp, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 
@@ -87,6 +87,14 @@ export default async function AdminHome() {
           badge={pendingCerts ?? undefined}
           hint="Pending Ambassador and lab cert uploads. Approve to award points; deny to delete the file."
         />
+        {user?.isAdmin && (
+          <AdminCard
+            href="/admin/leaderboard"
+            icon={<TrendingUp size={22} />}
+            title="Leaderboard config"
+            hint="Phase milestones, thermometer values, Green Pipette scoring, and feature flags."
+          />
+        )}
       </div>
     </div>
   )

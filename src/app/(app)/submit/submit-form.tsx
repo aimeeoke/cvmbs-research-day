@@ -84,6 +84,9 @@ type FormState = {
   session_preference: SessionPreference | null
   previously_presented: boolean | null
   previous_format: 'Oral' | 'Poster' | null
+  // 0, 1, 2, 3, or 4 (= "4 or more"). NULL on legacy drafts, visible as
+  // an unselected radio group so returning submitters must answer.
+  presenter_previous_rd_count: number | null
   presenter: PresenterFields
   mentor_cvmbs_1: MentorCvmbsState
   mentor_cvmbs_2: MentorCvmbsState
@@ -144,6 +147,16 @@ const SESSION_PREFS: { value: SessionPreference; label: string }[] = [
   { value: 'No preference', label: 'No preference' },
 ]
 
+// Powers the First-Timer / Veteran badges on the 2027 Leaderboard.
+// 4 is semantically "4 or more" so the picker stays short.
+const PREVIOUS_RD_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: '0 (first time)' },
+  { value: 1, label: '1' },
+  { value: 2, label: '2' },
+  { value: 3, label: '3' },
+  { value: 4, label: '4 or more' },
+]
+
 function deserialize(initial: SubmissionInput): FormState {
   const authors = [...initial.authors].sort((a, b) => a.position - b.position)
   const presenterRow = authors.find((a) => a.is_presenter)
@@ -179,6 +192,7 @@ function deserialize(initial: SubmissionInput): FormState {
     session_preference: initial.session_preference,
     previously_presented: initial.previously_presented,
     previous_format: initial.previous_format,
+    presenter_previous_rd_count: initial.presenter_previous_rd_count,
     presenter: {
       name: presenterRow?.display_name ?? '',
       email: presenterRow?.email ?? '',
@@ -451,6 +465,7 @@ export function SubmitForm(props: Props) {
     session_preference: s.session_preference,
     previously_presented: s.previously_presented,
     previous_format: s.previous_format,
+    presenter_previous_rd_count: s.presenter_previous_rd_count,
     authors: serializeAuthors(s),
   })
 
@@ -854,29 +869,33 @@ export function SubmitForm(props: Props) {
             ))}
           </div>
         </Field>
-        <Field label="Have you previously presented at CVMBS Research Day?">
-          <div className="flex gap-2">
-            <RadioButton
-              name="previously_presented"
-              value="yes"
-              checked={state.previously_presented === true}
-              disabled={disabled}
-              onChange={() => patch({ previously_presented: true })}
-              label="Yes"
-            />
-            <RadioButton
-              name="previously_presented"
-              value="no"
-              checked={state.previously_presented === false}
-              disabled={disabled}
-              onChange={() =>
-                patch({ previously_presented: false, previous_format: null })
-              }
-              label="No"
-            />
+        <Field label="How many previous CVMBS Research Days have you presented at?">
+          <div className="flex flex-wrap gap-2">
+            {PREVIOUS_RD_OPTIONS.map((opt) => {
+              const checked = state.presenter_previous_rd_count === opt.value
+              return (
+                <RadioButton
+                  key={opt.value}
+                  name="presenter_previous_rd_count"
+                  value={String(opt.value)}
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() =>
+                    patch({
+                      presenter_previous_rd_count: opt.value,
+                      previously_presented: opt.value > 0,
+                      // Format only applies when count > 0; wipe it otherwise.
+                      previous_format: opt.value > 0 ? state.previous_format : null,
+                    })
+                  }
+                  label={opt.label}
+                />
+              )
+            })}
           </div>
         </Field>
-        {state.previously_presented === true && (
+        {state.presenter_previous_rd_count !== null &&
+          state.presenter_previous_rd_count > 0 && (
           <Field label="If yes, in what format?">
             <div className="flex gap-2">
               <RadioButton

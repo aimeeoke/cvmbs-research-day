@@ -146,6 +146,9 @@ export default async function SubmitPage({
       (submission.session_preference as SessionPreference | null) ?? null,
     previously_presented: submission.previously_presented,
     previous_format: (submission.previous_format as 'Oral' | 'Poster' | null) ?? null,
+    presenter_previous_rd_count:
+      (submission as { presenter_previous_rd_count?: number | null })
+        .presenter_previous_rd_count ?? null,
     authors: initialAuthors,
   }
 

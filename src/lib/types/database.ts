@@ -224,6 +224,7 @@ export type Database = {
           session_preference: SessionPreference | null
           previously_presented: boolean | null
           previous_format: 'Oral' | 'Poster' | null
+          presenter_previous_rd_count: number | null
           status: SubmissionStatus
           submitted_at: string | null
           finalized_at: string | null
@@ -250,6 +251,7 @@ export type Database = {
           session_preference?: SessionPreference | null
           previously_presented?: boolean | null
           previous_format?: 'Oral' | 'Poster' | null
+          presenter_previous_rd_count?: number | null
           status?: SubmissionStatus
           submitted_at?: string | null
           finalized_at?: string | null
@@ -276,6 +278,7 @@ export type Database = {
           session_preference?: SessionPreference | null
           previously_presented?: boolean | null
           previous_format?: 'Oral' | 'Poster' | null
+          presenter_previous_rd_count?: number | null
           status?: SubmissionStatus
           submitted_at?: string | null
           finalized_at?: string | null

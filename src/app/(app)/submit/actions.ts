@@ -43,6 +43,10 @@ export type SubmissionInput = {
   session_preference: SessionPreference | null
   previously_presented: boolean | null
   previous_format: 'Oral' | 'Poster' | null
+  // 0 = First-Timer · 1-3 = exact count · 4 = four or more.
+  // Added 2026-10-12 for the Research Day 2027 Leaderboard (First-Timer /
+  // Veteran badges). Legacy drafts have NULL.
+  presenter_previous_rd_count: number | null
   authors: AuthorInput[]
 }
 
@@ -220,8 +224,15 @@ async function persistSubmission(
     affiliations: input.affiliations,
     preferred_presentation_type: input.preferred_presentation_type,
     session_preference: input.session_preference,
-    previously_presented: input.previously_presented,
+    // The form only asks for the count; the boolean is derived here so the
+    // existing oral-session prioritization queries (which read
+    // previously_presented) keep working without a schema sweep.
+    previously_presented:
+      input.presenter_previous_rd_count === null
+        ? input.previously_presented
+        : input.presenter_previous_rd_count > 0,
     previous_format: input.previous_format,
+    presenter_previous_rd_count: input.presenter_previous_rd_count,
   }
 
   if (nextStatus === 'submitted' && current.status !== 'submitted') {

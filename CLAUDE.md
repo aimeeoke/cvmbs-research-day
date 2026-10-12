@@ -8,6 +8,26 @@ A unified conference management platform for Colorado State University's College
 
 ## Progress & Next Steps
 
+### ▶️ Resume HERE — Oct 12, 2026 (post-comms meeting)
+
+Read `tasks/leaderboard-handoff-2026-10-12.md` FIRST before touching
+anything. It has the full picture of what shipped during the Oct 12
+leaderboard build sprint (9 unpushed commits), what's running locally,
+what Aimee planned to show the comms team at 3 PM, and the prioritized
+backlog waiting for whatever comms decides.
+
+Short version:
+- **9 commits ahead of `origin/main`**, nothing pushed. Working tree clean.
+- All Oct 12 Supabase migrations applied against prod DB.
+- `/leaderboard` has a logged-in player card, 5-level thermometer, Guild
+  Showdown scored as % of 2026 cohort, Green Pipette, and system-voice
+  typography. Admin can edit every knob at `/admin/leaderboard`.
+- First task after resuming: ask Aimee what the comms team said. Do not
+  push to prod without her sign-off (she explicitly held the push).
+
+Everything below ("⏸ Paused 2026-09-30") is pre-Oct-12 context, mostly
+superseded by the handoff doc.
+
 ### ⏸ Paused 2026-09-30 — resuming after CRC sprint
 
 The platform is feature-complete for the Sep–Oct sprint. Aimee is pausing

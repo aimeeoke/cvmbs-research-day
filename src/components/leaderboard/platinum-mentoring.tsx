@@ -38,8 +38,10 @@ export default function PlatinumMentoring({ result }: Props) {
           💎 Platinum Mentoring Top 10
         </h2>
         <p className="font-mono text-xs text-gray-600 mt-0.5">
-          Faculty mentors ranked by number of mentees presenting. Platinum
-          beats Gold. 😉
+          Platinum beats Gold. 😉{' '}
+          {result.mode === 'drafts'
+            ? 'Counts every abstract — drafts, submitted, and finalized — until the Jan 4 finalize deadline.'
+            : 'Finalized abstracts only.'}
         </p>
       </div>
 

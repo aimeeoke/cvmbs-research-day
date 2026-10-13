@@ -4,12 +4,22 @@ import { createClient } from '@/lib/supabase/server'
  * Platinum Mentoring Top 10 (committee doc Part 1 · item 3).
  *
  * For each CVMBS-roster faculty mentor on the active event, count the
- * number of distinct non-draft, non-withdrawn abstracts that list them as
- * a mentor. Each abstract = 1 full mentee per listed mentor; no splitting.
+ * number of distinct abstracts that list them as a mentor. Each abstract
+ * = 1 full mentee per listed mentor; no splitting.
  *
  * External (non-CVMBS) mentors — rows where `faculty_id IS NULL` — are
  * excluded, matching the Oct 12 design call ("faculty_id IS NULL = external
  * for crediting").
+ *
+ * Counting lifecycle (same pattern the thermometer and Guild Showdown use):
+ *   - Drafts mode (pre-finalize_deadline_at): include draft + submitted
+ *     + finalized. Idea per the committee is that making the count visible
+ *     while drafts are in-progress nudges mentors to push more mentees in.
+ *   - Finals mode (post-finalize_deadline_at): finalized only. Drafts that
+ *     never got finalized stop counting; counts settle for the sealed /
+ *     award phases.
+ *   - No-shows (post-event): still TODO — needs a submissions.no_show_at
+ *     column and admin UI to mark no-shows. Lands closer to Jan 23.
  *
  * Tier thresholds come from the committee doc; the Celestial Box tier at
  * 10+ is an intentional hidden easter egg (not advertised anywhere until
@@ -48,23 +58,33 @@ export type PlatinumRow = {
 export type PlatinumResult = {
   rows: PlatinumRow[]
   topTierOnBoard: PlatinumTier // the highest tier currently represented in Top 10
+  mode: 'drafts' | 'finals'
 }
 
-export async function getPlatinumMentoring(): Promise<PlatinumResult> {
+export async function getPlatinumMentoring(
+  now: Date = new Date()
+): Promise<PlatinumResult> {
   const supabase = await createClient()
 
   const { data: event } = await supabase
     .from('events')
-    .select('id')
+    .select('id, finalize_deadline_at')
     .eq('is_active', true)
     .maybeSingle()
 
-  if (!event) return { rows: [], topTierOnBoard: 'none' }
+  if (!event) return { rows: [], topTierOnBoard: 'none', mode: 'drafts' }
 
-  // Pull every faculty-mentor row on non-draft/non-withdrawn abstracts for
-  // the active event. The !inner join against submissions is how we get
-  // the event + status filter to apply through the join.
-  const { data: rows } = await supabase
+  // Phase pick: same cutover rule as the thermometer and Guild Showdown.
+  const finalsCutover = event.finalize_deadline_at
+    ? new Date(event.finalize_deadline_at)
+    : null
+  const mode: 'drafts' | 'finals' =
+    finalsCutover && now >= finalsCutover ? 'finals' : 'drafts'
+
+  // Pull every faculty-mentor row for the active event. Status filter
+  // depends on phase: drafts mode = anything that isn't withdrawn, finals
+  // mode = only finalized.
+  const query = supabase
     .from('submission_authors')
     .select(
       `submission_id, faculty_id,
@@ -74,7 +94,14 @@ export async function getPlatinumMentoring(): Promise<PlatinumResult> {
     .eq('is_mentor', true)
     .not('faculty_id', 'is', null)
     .eq('submissions.event_id', event.id)
-    .not('submissions.status', 'in', '(draft,withdrawn)')
+
+  if (mode === 'finals') {
+    query.eq('submissions.status', 'finalized')
+  } else {
+    query.neq('submissions.status', 'withdrawn')
+  }
+
+  const { data: rows } = await query
 
   type Row = {
     submission_id: string
@@ -134,5 +161,5 @@ export async function getPlatinumMentoring(): Promise<PlatinumResult> {
     }
   }
 
-  return { rows: top10, topTierOnBoard }
+  return { rows: top10, topTierOnBoard, mode }
 }

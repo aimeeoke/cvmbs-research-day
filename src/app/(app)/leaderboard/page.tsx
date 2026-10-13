@@ -30,7 +30,7 @@ export default async function LeaderboardPage() {
     getThermometerCount(now),
     getGuildCounts(now),
     getGreenPipette(),
-    getPlatinumMentoring(),
+    getPlatinumMentoring(now),
     getPlayerCardData(),
   ])
   const phase = computePhase(config, now)

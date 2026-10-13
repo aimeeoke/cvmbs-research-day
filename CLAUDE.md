@@ -541,8 +541,11 @@ This is V2 of the Research Day system, combining:
 - **Project Name:** CVMBS-Research-Day
 - **Project ID:** nsdiwpykofypspebywki
 - **URL:** https://nsdiwpykofypspebywki.supabase.co
-- **Anon Key:** eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zZGl3cHlrb2Z5cHNwZWJ5d2tpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzUxMjgsImV4cCI6MjA4NDk1MTEyOH0.DZXpQsFeSMDrPTlatn9ookOGS46oqh40RHHvDq_SboA
 - **Dashboard:** https://supabase.com/dashboard/project/nsdiwpykofypspebywki
+- **Keys:** `.env.local` holds `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  (browser-safe) and `researchday_secret_key` (server-only, bypasses RLS).
+  Rotated Oct 13, 2026 from the legacy anon/service_role JWTs — see commit
+  `028f3fd`. Grab current values from Supabase → Settings → API Keys.
 
 ## Deployment
 - **Vercel:** Not yet configured

@@ -1,6 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { classificationToGuild, GUILDS } from './guilds'
-import { computeBadges, BADGES, type BadgeKey, EARLY_BIRD_COUNT } from './badges'
+import {
+  computeBadges,
+  computeSecretBadges,
+  BADGES,
+  SECRETS_TOTAL,
+  type BadgeKey,
+  type SecretBadgeKey,
+  EARLY_BIRD_COUNT,
+} from './badges'
 
 // Shape passed to the <PlayerCard /> component. Null when nobody is signed
 // in (the page renders the public shell instead).
@@ -19,15 +27,11 @@ export type PlayerCardData = {
   abstractCount: number
   earnedBadges: BadgeKey[]
   visibleBadgesTotal: number
+  earnedSecrets: SecretBadgeKey[]
   secretsFound: number
   secretsTotal: number
   nextQuest: NextQuest
 }
-
-// Hard-coded for now — the actual secret achievements (Night Owl, Photo
-// Finish, Full Party, Royal Approval per the Oct 12 brainstorm doc) land
-// post-comms. The counter displays the teaser.
-const SECRETS_TOTAL = 4
 
 export async function getPlayerCardData(): Promise<PlayerCardData | null> {
   const supabase = await createClient()
@@ -38,14 +42,19 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
 
   const email = (user.email ?? '').toLowerCase()
 
-  // Profile (classification + name) + active event id in parallel.
+  // Profile (classification + name) + active event (incl. submission deadline
+  // for Photo Finish) in parallel.
   const [{ data: profile }, { data: event }] = await Promise.all([
     supabase
       .from('profiles')
       .select('first_name, last_name, full_name, classification, department_id')
       .eq('id', user.id)
       .maybeSingle(),
-    supabase.from('events').select('id').eq('is_active', true).maybeSingle(),
+    supabase
+      .from('events')
+      .select('id, submission_closes_at')
+      .eq('is_active', true)
+      .maybeSingle(),
   ])
 
   if (!event) {
@@ -64,9 +73,9 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
       .from('submissions')
       .select(
         `id, status, classification, presenter_previous_rd_count,
-         submitted_at,
+         submitted_at, title, abstract,
          submission_authors!inner (
-           profile_id, email, is_presenter
+           profile_id, email, is_presenter, is_mentor
          )`
       )
       .eq('event_id', event.id)
@@ -100,10 +109,13 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
     classification: string | null
     presenter_previous_rd_count: number | null
     submitted_at: string | null
+    title: string | null
+    abstract: string | null
     submission_authors: Array<{
       profile_id: string | null
       email: string | null
       is_presenter: boolean
+      is_mentor: boolean
     }>
   }
   const abstracts = (userAbstractRows ?? []) as unknown as AbstractRow[]
@@ -118,9 +130,27 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
     }
   }
 
+  // Mentor counts for the Full Party secret: the `!inner` join above filters
+  // submission_authors to the row(s) matching THIS user, so we can't count
+  // mentors from it. Second pass pulls the full author list for just the user's
+  // abstract ids.
+  const activeIds = unique.filter((a) => a.status !== 'withdrawn').map((a) => a.id)
+  const mentorCountById = new Map<string, number>()
+  if (activeIds.length > 0) {
+    const { data: mentorRows } = await supabase
+      .from('submission_authors')
+      .select('submission_id, is_mentor')
+      .in('submission_id', activeIds)
+      .eq('is_mentor', true)
+    for (const r of (mentorRows ?? []) as Array<{ submission_id: string }>) {
+      mentorCountById.set(r.submission_id, (mentorCountById.get(r.submission_id) ?? 0) + 1)
+    }
+  }
+
   // Union of badges earned across the user's abstracts. Then layer on the
   // "whole-person" badges that don't depend on a specific submission.
   const earned = new Set<BadgeKey>()
+  const earnedSecrets = new Set<SecretBadgeKey>()
   for (const a of unique) {
     if (a.status === 'withdrawn') continue
     // The user may be an author or a mentor on this abstract, not the
@@ -138,6 +168,16 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
       isAmongFirstN: earliestIds.has(a.id),
     })
     for (const b of badges) earned.add(b)
+
+    // Secrets attach to any abstract the user is on, same as Early Bird.
+    const secrets = computeSecretBadges({
+      submittedAt: a.submitted_at,
+      submissionClosesAt: event.submission_closes_at ?? null,
+      mentorCount: mentorCountById.get(a.id) ?? 0,
+      titleHtml: a.title,
+      abstractHtml: a.abstract,
+    })
+    for (const s of secrets) earnedSecrets.add(s)
   }
 
   // Undergrad badge from profile classification (even if they haven't
@@ -166,7 +206,8 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
     abstractCount: unique.filter((a) => a.status !== 'withdrawn').length,
     earnedBadges: Array.from(earned),
     visibleBadgesTotal,
-    secretsFound: 0,
+    earnedSecrets: Array.from(earnedSecrets),
+    secretsFound: earnedSecrets.size,
     secretsTotal: SECRETS_TOTAL,
     nextQuest,
   }
@@ -236,6 +277,7 @@ function makeEmpty(p: ProfileRow, email: string, _userId: string): PlayerCardDat
     abstractCount: 0,
     earnedBadges: [],
     visibleBadgesTotal: Object.keys(BADGES).length,
+    earnedSecrets: [],
     secretsFound: 0,
     secretsTotal: SECRETS_TOTAL,
     nextQuest: null,

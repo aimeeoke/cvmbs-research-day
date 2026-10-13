@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BADGES, type BadgeKey } from '@/lib/leaderboard/badges'
+import { BADGES, SECRET_BADGES, type BadgeKey, type SecretBadgeKey } from '@/lib/leaderboard/badges'
 import type { PlayerCardData } from '@/lib/leaderboard/player'
 
 type Props = {
@@ -48,7 +48,10 @@ export default function PlayerCard({ data }: Props) {
               Level {level} presenter · {data.earnedBadges.length} of{' '}
               {data.visibleBadgesTotal} achievements
               {data.secretsFound > 0 && (
-                <> · {data.secretsFound} secret found</>
+                <>
+                  {' · '}
+                  {data.secretsFound} secret{data.secretsFound === 1 ? '' : 's'} found
+                </>
               )}
             </p>
           </div>
@@ -76,7 +79,10 @@ export default function PlayerCard({ data }: Props) {
         )}
       </div>
 
-      {/* Achievement tiles — earned ones get color, locked show as ?. */}
+      {/* Achievement tiles — earned ones get color, locked show as ?.
+          Earned secrets slot in after the visible ones with a purple tint
+          so the reveal reads as "something new unlocked" rather than just
+          another amber tile. */}
       <div className="flex items-center gap-2 flex-wrap pt-1">
         {slots.map((s) => {
           const def = BADGES[s.key]
@@ -94,7 +100,19 @@ export default function PlayerCard({ data }: Props) {
             </span>
           )
         })}
-        {data.secretsTotal > 0 && (
+        {data.earnedSecrets.map((key: SecretBadgeKey) => {
+          const def = SECRET_BADGES[key]
+          return (
+            <span
+              key={`secret-${key}`}
+              title={`${def.label} — ${def.blurb}`}
+              className="h-8 w-8 rounded-full flex items-center justify-center text-base border bg-purple-50 border-purple-300"
+            >
+              {def.emoji}
+            </span>
+          )
+        })}
+        {data.secretsFound < data.secretsTotal && (
           <span className="font-mono text-xs text-gray-500 ml-1">
             {data.secretsTotal - data.secretsFound} secret achievements remain
           </span>

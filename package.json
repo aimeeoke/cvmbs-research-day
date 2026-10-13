@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:credit": "tsx scripts/test-credit.ts"
+    "test:credit": "tsx scripts/test-credit.ts",
+    "test:secret-badges": "tsx scripts/test-secret-badges.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

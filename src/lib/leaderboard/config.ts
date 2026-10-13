@@ -17,6 +17,7 @@ export type LeaderboardConfig = {
   show_thermometer: boolean
   show_guild_showdown: boolean
   show_green_pipette: boolean
+  show_platinum_mentoring: boolean
   guild_cohort_undergrad: number
   guild_cohort_grad: number
   guild_cohort_dvm: number

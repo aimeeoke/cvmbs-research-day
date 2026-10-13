@@ -38,6 +38,7 @@ export default async function AdminLeaderboardPage() {
           show_thermometer: config.show_thermometer,
           show_guild_showdown: config.show_guild_showdown,
           show_green_pipette: config.show_green_pipette,
+          show_platinum_mentoring: config.show_platinum_mentoring,
           guild_cohort_undergrad: config.guild_cohort_undergrad,
           guild_cohort_grad: config.guild_cohort_grad,
           guild_cohort_dvm: config.guild_cohort_dvm,

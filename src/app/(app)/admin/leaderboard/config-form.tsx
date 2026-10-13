@@ -164,6 +164,11 @@ export default function LeaderboardConfigForm({ initial }: Props) {
           checked={state.show_green_pipette}
           onChange={(v) => patch({ show_green_pipette: v })}
         />
+        <CheckboxField
+          label="Show Platinum Mentoring Top 10"
+          checked={state.show_platinum_mentoring}
+          onChange={(v) => patch({ show_platinum_mentoring: v })}
+        />
       </Section>
 
       <div className="flex justify-end border-t border-gray-200 pt-4">

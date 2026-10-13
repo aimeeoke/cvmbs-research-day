@@ -6,11 +6,13 @@ import {
 } from '@/lib/leaderboard/config'
 import { getGuildCounts, getThermometerCount } from '@/lib/leaderboard/queries'
 import { getGreenPipette } from '@/lib/leaderboard/green-pipette'
+import { getPlatinumMentoring } from '@/lib/leaderboard/platinum'
 import { getPlayerCardData } from '@/lib/leaderboard/player'
 import AutoRefresh from '@/components/leaderboard/auto-refresh'
 import Thermometer from '@/components/leaderboard/thermometer'
 import GuildShowdown from '@/components/leaderboard/guild-showdown'
 import GreenPipette from '@/components/leaderboard/green-pipette'
+import PlatinumMentoring from '@/components/leaderboard/platinum-mentoring'
 import PlayerCard from '@/components/leaderboard/player-card'
 import HowToEarn from '@/components/leaderboard/how-to-earn'
 
@@ -23,11 +25,12 @@ export const metadata = { title: 'Leaderboard · CVMBS Research Day' }
 
 export default async function LeaderboardPage() {
   const now = new Date()
-  const [config, thermometer, guilds, greenPipette, player] = await Promise.all([
+  const [config, thermometer, guilds, greenPipette, platinum, player] = await Promise.all([
     getLeaderboardConfig(),
     getThermometerCount(now),
     getGuildCounts(now),
     getGreenPipette(),
+    getPlatinumMentoring(),
     getPlayerCardData(),
   ])
   const phase = computePhase(config, now)
@@ -82,6 +85,8 @@ export default async function LeaderboardPage() {
         )}
 
         {config.show_green_pipette && <GreenPipette result={greenPipette} />}
+
+        {config.show_platinum_mentoring && <PlatinumMentoring result={platinum} />}
 
         <HowToEarn />
       </div>

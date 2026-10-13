@@ -151,9 +151,11 @@ From the Oct 12 brainstorm doc. Can land in any order; most are hours each.
 - **The three legacy booleans** (`profiles.is_green_labs_ambassador`,
   `faculty.my_green_labs_certified`, `faculty.green_paw_certified`) are
   still in the schema but unused. Can be dropped in a cleanup pass.
-- **Secret achievements** total is hard-coded to 4 in
-  `src/lib/leaderboard/player.ts` (`SECRETS_TOTAL`). Keep this in sync
-  with however many secrets you ship.
+- **Secret achievements** shipped Oct 13, 2026 (commit `42b1830`):
+  Night Owl, Photo Finish, Full Party, Royal Approval. `SECRETS_TOTAL`
+  now derives from `Object.keys(SECRET_BADGES).length` in
+  `src/lib/leaderboard/badges.ts` so adding a fifth secret updates
+  the counter automatically. Tests at `npm run test:secret-badges`.
 
 ---
 

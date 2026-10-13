@@ -169,6 +169,11 @@ export default function LeaderboardConfigForm({ initial }: Props) {
           checked={state.show_platinum_mentoring}
           onChange={(v) => patch({ show_platinum_mentoring: v })}
         />
+        <CheckboxField
+          label="Show Department Turnout"
+          checked={state.show_dept_turnout}
+          onChange={(v) => patch({ show_dept_turnout: v })}
+        />
       </Section>
 
       <div className="flex justify-end border-t border-gray-200 pt-4">

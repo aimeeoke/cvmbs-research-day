@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { nameMatchKey, nameMatchKeyFromFullName } from '@/lib/name-match'
+import { nameMatchKey } from '@/lib/name-match'
 import type {
   AuthorInput,
   SubmissionInput,
   UserAmbassadorCert,
 } from './actions'
+import { authorIdentityKey } from './author-certs-section'
 import { SubmitForm } from './submit-form'
 import type { FacultyOption } from './submit-authors'
 import type {
@@ -211,36 +212,51 @@ export default async function SubmitPage({
     profile_id: c.profile_id,
   })
 
-  // For each author entry on this abstract, figure out their email (the
-  // row-key in the UI) and their name key, then pull the strongest match.
-  // Email beats name match when both exist.
+  // Build the initial cert map using the same composite identity key the
+  // client-side AuthorCertsSection uses (email if present, else name key).
+  // For each candidate author, pull the strongest cert hit (email first,
+  // then name key) and park it under their identity key.
   const initialAmbassadorCerts: Record<string, UserAmbassadorCert> = {}
 
-  const authorIdentities: Array<{ email: string; nameKey: string | null }> = []
+  type AuthorIdentity = {
+    email: string
+    firstName: string | null
+    lastName: string | null
+  }
+  const identities: AuthorIdentity[] = []
+
   if (userEmailLc) {
     const prof = user.profile
-    authorIdentities.push({
+    identities.push({
       email: userEmailLc,
-      nameKey: nameMatchKey(prof?.first_name, prof?.last_name),
+      firstName: prof?.first_name ?? null,
+      lastName: prof?.last_name ?? null,
     })
   }
   for (const a of initialAuthors) {
     const em = (a.email ?? '').trim().toLowerCase()
-    let nk: string | null = null
+    // Prefer faculty roster's full_name when the row is a linked faculty
+    // (handles middle names / preferred spelling the roster has but the
+    // free-text display name might not).
+    let fullName = a.display_name ?? ''
     if (a.faculty_id) {
       const f = facultyOptions.find((fo) => fo.id === a.faculty_id)
-      if (f) nk = nameMatchKeyFromFullName(f.full_name)
+      if (f?.full_name) fullName = f.full_name
     }
-    if (!nk) nk = nameMatchKeyFromFullName(a.display_name)
-    if (em) authorIdentities.push({ email: em, nameKey: nk })
+    const parts = fullName.trim().split(/\s+/).filter(Boolean)
+    const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] ?? null
+    const lastName = parts.length > 1 ? parts[parts.length - 1] : null
+    identities.push({ email: em, firstName, lastName })
   }
 
-  for (const id of authorIdentities) {
-    if (initialAmbassadorCerts[id.email]) continue
-    const emailHit = byEmail.get(id.email)
-    const nameHit = id.nameKey ? byNameKey.get(id.nameKey) : undefined
+  for (const id of identities) {
+    const key = authorIdentityKey(id)
+    if (!key || initialAmbassadorCerts[key]) continue
+    const emailHit = id.email ? byEmail.get(id.email) : undefined
+    const nameKey = nameMatchKey(id.firstName, id.lastName)
+    const nameHit = nameKey ? byNameKey.get(nameKey) : undefined
     const match = emailHit ?? nameHit
-    if (match) initialAmbassadorCerts[id.email] = toUserCert(match)
+    if (match) initialAmbassadorCerts[key] = toUserCert(match)
   }
 
   return (

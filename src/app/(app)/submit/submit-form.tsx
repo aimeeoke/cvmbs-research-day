@@ -347,6 +347,13 @@ function computeBylineNames(state: FormState): string[] {
  * Emails come from the state directly for coauthors + mentors, from the
  * faculty roster for linked CVMBS mentors (via facultyOptions lookup).
  */
+function splitName(full: string): { first: string | null; last: string | null } {
+  const parts = full.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return { first: null, last: null }
+  if (parts.length === 1) return { first: parts[0], last: null }
+  return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] }
+}
+
 function computeAuthorRows(
   state: FormState,
   facultyOptions: FacultyOption[]
@@ -354,24 +361,27 @@ function computeAuthorRows(
   const rows: AuthorRow[] = []
 
   if (state.presenter.name.trim()) {
-    const parts = state.presenter.name.trim().split(/\s+/)
+    const { first, last } = splitName(state.presenter.name)
     rows.push({
       key: 'presenter',
       name: state.presenter.name.trim(),
       email: state.presenter.email.trim(),
       roleLabel: 'Presenter',
-      firstName: parts[0] ?? null,
-      lastName: parts.slice(1).join(' ') || null,
+      firstName: first,
+      lastName: last,
     })
   }
 
   state.coauthors.forEach((c, i) => {
     if (!c.name.trim()) return
+    const { first, last } = splitName(c.name)
     rows.push({
       key: `co-${i}-${c.key}`,
       name: c.name.trim(),
       email: c.email.trim(),
       roleLabel: 'Coauthor',
+      firstName: first,
+      lastName: last,
     })
   })
 
@@ -389,20 +399,27 @@ function computeAuthorRows(
       m.mode === 'picker'
         ? linkedFaculty?.email ?? ''
         : m.email.trim()
+    const displayName = m.name.trim() || linkedFaculty?.full_name || ''
+    const { first, last } = splitName(displayName)
     rows.push({
       key,
-      name: m.name.trim() || linkedFaculty?.full_name || '',
+      name: displayName,
       email,
       roleLabel: 'Mentor',
+      firstName: first,
+      lastName: last,
     })
   }
 
   if (state.mentor_external.name.trim()) {
+    const { first, last } = splitName(state.mentor_external.name)
     rows.push({
       key: 'mentor-external',
       name: state.mentor_external.name.trim(),
       email: state.mentor_external.email.trim(),
       roleLabel: 'Mentor',
+      firstName: first,
+      lastName: last,
     })
   }
 

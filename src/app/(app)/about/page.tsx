@@ -295,15 +295,16 @@ export default function AboutPage() {
           <h3 className="font-semibold text-gray-900 mb-1">
             Who&apos;s eligible to win?
           </h3>
-          <p className="text-sm">Cash prizes are open to:</p>
+          <p className="text-sm">Monetary awards are open to:</p>
           <ul className="list-disc pl-5 mt-1 text-sm space-y-0.5">
             <li>
               students enrolled in a <strong>CVMBS</strong> or{' '}
               <strong>Cell &amp; Molecular Biology (CMB)</strong> program,{' '}
-              <strong>or</strong>
+              <strong>and/or</strong>
             </li>
             <li>
-              anyone <strong>currently employed by CVMBS</strong>.
+              anyone with an{' '}
+              <strong>active appointment in CVMBS</strong>.
             </li>
           </ul>
           <p className="text-sm mt-1.5 text-gray-600">
@@ -314,7 +315,10 @@ export default function AboutPage() {
 
         <p className="text-sm">
           <strong className="text-gray-900">How prizes are paid:</strong>{' '}
-          Winners are paid through the <strong>CSU payroll system</strong>.
+          Winners with active appointments at CSU are paid through{' '}
+          <strong>CSU payroll</strong> (amounts appear less withholdings in
+          paychecks), or through payments to the student account for
+          presenters without positions at CSU.
         </p>
 
         <p className="text-sm">
@@ -344,9 +348,8 @@ export default function AboutPage() {
           Golden Pipette standings update as scores come in.
         </p>
         <p className="text-sm text-gray-800">
-          <strong>The Green Pipette race starts early.</strong> Its standings
-          appear on the leaderboard starting <strong>November 18</strong>.
-          Every co-author who completes the My Green Lab Ambassador training
+          <strong>The Green Pipette race starts early.</strong> Every
+          co-author who completes the My Green Lab Ambassador training
           earns points for their department, so recruit your labmates, send
           the link to your co-authors and help your department climb.
         </p>

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { nameMatchKey, nameMatchKeyFromFullName } from '@/lib/name-match'
 import type {
   AuthorInput,
   SubmissionInput,
@@ -152,52 +153,94 @@ export default async function SubmitPage({
     authors: initialAuthors,
   }
 
-  // Collect every email attached to this abstract's authors (plus any
-  // linked-faculty emails looked up from the roster) so the Green Labs
-  // cert section can pre-populate status for all of them in one query.
-  const authorEmails = new Set<string>()
   const userEmailLc = (user.email ?? '').toLowerCase()
-  if (userEmailLc) authorEmails.add(userEmailLc)
-  for (const a of initialAuthors) {
-    const e = (a.email ?? '').trim().toLowerCase()
-    if (e) authorEmails.add(e)
-    if (a.faculty_id) {
-      const f = facultyOptions.find((fo) => fo.id === a.faculty_id)
-      const fe = (f?.email ?? '').trim().toLowerCase()
-      if (fe) authorEmails.add(fe)
-    }
+
+  // Load every verified ambassador cert in one go. 151 preloaded MGL rows
+  // plus a handful of self-uploads — small, flat scan is cheaper than
+  // chaining per-email queries. We'll match in JS on email OR name.
+  //
+  // Name match handles two realities we can't fix with email:
+  //   1. CSU users have 2–3 email aliases (first.last, legacy ename,
+  //      personal) and MGL only has whatever address they entered at
+  //      training.
+  //   2. The preloaded MGL CSV has NO emails at all — just first/last.
+  const { data: allCertRows } = await supabase
+    .from('certifications')
+    .select(
+      'id, source, storage_path, verified_at, valid_through, uploaded_at, uploaded_by, email, profile_id, first_name, last_name'
+    )
+    .eq('kind', 'ambassador')
+    .not('verified_at', 'is', null)
+    .order('verified_at', { ascending: false, nullsFirst: false })
+    .order('uploaded_at', { ascending: false })
+
+  type CertRow = {
+    id: string
+    source: UserAmbassadorCert['source']
+    storage_path: string | null
+    verified_at: string | null
+    valid_through: string | null
+    uploaded_at: string
+    uploaded_by: string | null
+    email: string | null
+    profile_id: string | null
+    first_name: string | null
+    last_name: string | null
+  }
+  const certs = (allCertRows ?? []) as unknown as CertRow[]
+
+  // Index certs by email AND by name key so lookups are O(1) per author.
+  const byEmail = new Map<string, CertRow>()
+  const byNameKey = new Map<string, CertRow>()
+  for (const c of certs) {
+    const em = (c.email ?? '').toLowerCase()
+    if (em && !byEmail.has(em)) byEmail.set(em, c)
+    const nk = nameMatchKey(c.first_name, c.last_name)
+    if (nk && !byNameKey.has(nk)) byNameKey.set(nk, c)
   }
 
-  let initialAmbassadorCerts: Record<string, UserAmbassadorCert> = {}
-  if (authorEmails.size > 0) {
-    const emailList = Array.from(authorEmails)
-    // ILIKE-list via OR — Supabase JS doesn't have a case-insensitive `in`.
-    const orClause = emailList.map((e) => `email.ilike.${e}`).join(',')
-    const { data: certRows } = await supabase
-      .from('certifications')
-      .select(
-        'id, source, storage_path, verified_at, valid_through, uploaded_at, uploaded_by, email, profile_id'
-      )
-      .eq('kind', 'ambassador')
-      .or(orClause)
-      .order('verified_at', { ascending: false, nullsFirst: false })
-      .order('uploaded_at', { ascending: false })
+  const toUserCert = (c: CertRow): UserAmbassadorCert => ({
+    id: c.id,
+    source: c.source,
+    storage_path: c.storage_path,
+    verified_at: c.verified_at,
+    valid_through: c.valid_through,
+    uploaded_at: c.uploaded_at,
+    uploaded_by: c.uploaded_by,
+    email: c.email,
+    profile_id: c.profile_id,
+  })
 
-    for (const row of certRows ?? []) {
-      const key = ((row.email as string | null) ?? '').toLowerCase()
-      if (!key || initialAmbassadorCerts[key]) continue // keep first (highest-priority)
-      initialAmbassadorCerts[key] = {
-        id: row.id as string,
-        source: row.source as UserAmbassadorCert['source'],
-        storage_path: (row.storage_path as string | null) ?? null,
-        verified_at: (row.verified_at as string | null) ?? null,
-        valid_through: (row.valid_through as string | null) ?? null,
-        uploaded_at: row.uploaded_at as string,
-        uploaded_by: (row.uploaded_by as string | null) ?? null,
-        email: (row.email as string | null) ?? null,
-        profile_id: (row.profile_id as string | null) ?? null,
-      }
+  // For each author entry on this abstract, figure out their email (the
+  // row-key in the UI) and their name key, then pull the strongest match.
+  // Email beats name match when both exist.
+  const initialAmbassadorCerts: Record<string, UserAmbassadorCert> = {}
+
+  const authorIdentities: Array<{ email: string; nameKey: string | null }> = []
+  if (userEmailLc) {
+    const prof = user.profile
+    authorIdentities.push({
+      email: userEmailLc,
+      nameKey: nameMatchKey(prof?.first_name, prof?.last_name),
+    })
+  }
+  for (const a of initialAuthors) {
+    const em = (a.email ?? '').trim().toLowerCase()
+    let nk: string | null = null
+    if (a.faculty_id) {
+      const f = facultyOptions.find((fo) => fo.id === a.faculty_id)
+      if (f) nk = nameMatchKeyFromFullName(f.full_name)
     }
+    if (!nk) nk = nameMatchKeyFromFullName(a.display_name)
+    if (em) authorIdentities.push({ email: em, nameKey: nk })
+  }
+
+  for (const id of authorIdentities) {
+    if (initialAmbassadorCerts[id.email]) continue
+    const emailHit = byEmail.get(id.email)
+    const nameHit = id.nameKey ? byNameKey.get(id.nameKey) : undefined
+    const match = emailHit ?? nameHit
+    if (match) initialAmbassadorCerts[id.email] = toUserCert(match)
   }
 
   return (

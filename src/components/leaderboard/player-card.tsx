@@ -9,20 +9,20 @@ type Props = {
 /**
  * Logged-in-only "player card" that sits at the top of /leaderboard. Follows
  * the Oct 12 brainstorm mockup: avatar + name + guild pill + stat line, with
- * a "Your next quest" box on the right. Visible achievement slots show as
- * filled vs. ? below.
+ * a "Your next quest" box on the right.
+ *
+ * Badge strip shows every earned badge (visible = amber, secret = purple)
+ * followed by TEASER_SLOTS "?" tiles. The teasers are intentionally fixed —
+ * never shows a denominator — so new badges can be added without ruining
+ * the "there's always more to find" feeling.
  */
+const TEASER_SLOTS = 3
+
 export default function PlayerCard({ data }: Props) {
   // Level ties to visible-badge count so earning one feels like leveling.
-  // Floor at 1 so a brand-new user is "Level 1 presenter · 0 of N achievements".
+  // Floor at 1 so a brand-new user is "Level 1 presenter".
   const level = Math.max(1, data.earnedBadges.length)
-
-  // Build the ordered badge-slot list: earned first, then the rest as ?.
-  const earnedSet = new Set<BadgeKey>(data.earnedBadges)
-  const allKeys = Object.keys(BADGES) as BadgeKey[]
-  const slots = allKeys
-    .map((k) => ({ key: k, earned: earnedSet.has(k) }))
-    .sort((a, b) => (a.earned === b.earned ? 0 : a.earned ? -1 : 1))
+  const totalEarned = data.earnedBadges.length + data.earnedSecrets.length
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
@@ -45,14 +45,8 @@ export default function PlayerCard({ data }: Props) {
               )}
             </div>
             <p className="font-mono text-xs text-gray-600 mt-0.5">
-              Level {level} presenter · {data.earnedBadges.length} of{' '}
-              {data.visibleBadgesTotal} achievements
-              {data.secretsFound > 0 && (
-                <>
-                  {' · '}
-                  {data.secretsFound} secret{data.secretsFound === 1 ? '' : 's'} found
-                </>
-              )}
+              Level {level} presenter · {totalEarned} badge
+              {totalEarned === 1 ? '' : 's'} earned
             </p>
           </div>
         </div>
@@ -79,24 +73,18 @@ export default function PlayerCard({ data }: Props) {
         )}
       </div>
 
-      {/* Achievement tiles — earned ones get color, locked show as ?.
-          Earned secrets slot in after the visible ones with a purple tint
-          so the reveal reads as "something new unlocked" rather than just
-          another amber tile. */}
+      {/* Earned badges only — amber for visible, purple for secrets —
+          followed by TEASER_SLOTS "?" tiles to hint there's always more. */}
       <div className="flex items-center gap-2 flex-wrap pt-1">
-        {slots.map((s) => {
-          const def = BADGES[s.key]
+        {data.earnedBadges.map((key: BadgeKey) => {
+          const def = BADGES[key]
           return (
             <span
-              key={s.key}
-              title={s.earned ? `${def.label} — ${def.blurb}` : 'Locked'}
-              className={`h-8 w-8 rounded-full flex items-center justify-center text-base border ${
-                s.earned
-                  ? 'bg-amber-50 border-amber-300'
-                  : 'bg-gray-50 border-gray-200 text-gray-400'
-              }`}
+              key={key}
+              title={`${def.label} — ${def.blurb}`}
+              className="h-8 w-8 rounded-full flex items-center justify-center text-base border bg-amber-50 border-amber-300"
             >
-              {s.earned ? def.emoji : '?'}
+              {def.emoji}
             </span>
           )
         })}
@@ -112,11 +100,15 @@ export default function PlayerCard({ data }: Props) {
             </span>
           )
         })}
-        {data.secretsFound < data.secretsTotal && (
-          <span className="font-mono text-xs text-gray-500 ml-1">
-            {data.secretsTotal - data.secretsFound} secret achievements remain
+        {Array.from({ length: TEASER_SLOTS }).map((_, i) => (
+          <span
+            key={`teaser-${i}`}
+            title="More to earn — keep going."
+            className="h-8 w-8 rounded-full flex items-center justify-center text-base border bg-gray-50 border-gray-200 text-gray-400"
+          >
+            ?
           </span>
-        )}
+        ))}
       </div>
     </section>
   )

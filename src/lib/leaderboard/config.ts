@@ -72,7 +72,7 @@ export function computePhase(
 export function phaseSubheading(phase: LeaderboardPhase): { text: string; hoverTitle?: string } {
   switch (phase) {
     case 'pre_race':
-      return { text: 'The Guild Showdown has begun. ⚔️ The department races start November 18.' }
+      return { text: 'The races are on. ⚔️ Watch the standings move as abstracts come in.' }
     case 'race_on':
       return { text: 'The race is on! Every abstract, every ambassador and every judge counts.' }
     case 'event':
@@ -84,5 +84,22 @@ export function phaseSubheading(phase: LeaderboardPhase): { text: string; hoverT
         text: 'The pipettes have been awarded. Congratulations, RAMS! 🏆',
         hoverTitle: 'Congratulations, crawlers!',
       }
+  }
+}
+
+// Short chapter label shown as a pill in the leaderboard hero. Post-event
+// phases (sealed/champions) deliberately return null so the pill goes away
+// once the awards ceremony has happened.
+export function phaseChapter(phase: LeaderboardPhase): string | null {
+  switch (phase) {
+    case 'pre_race':
+      return 'Chapter 1'
+    case 'race_on':
+      return 'Chapter 2'
+    case 'event':
+      return 'Research Day'
+    case 'sealed':
+    case 'champions':
+      return null
   }
 }

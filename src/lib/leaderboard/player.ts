@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { nameMatchKey } from '@/lib/name-match'
 import { classificationToGuild, GUILDS } from './guilds'
 import {
   computeBadges,
@@ -64,10 +65,15 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
   // Fetch everything we need to compute badges + abstract count for this
   // user, scoped to the active event. Grab the EARLY_BIRD_COUNT earliest
   // submitted_at timestamps across the event for the Early-Bird test.
+  //
+  // Cert lookup is email-blind on purpose: the preloaded MGL CSV ships
+  // name only (no email), and CSU users have 2–3 email aliases apiece
+  // (first.last, legacy ename, personal). So we pull every verified
+  // ambassador cert and match on profile_id / email / name key.
   const [
     { data: userAbstractRows },
     { data: earlyBirdRows },
-    { data: certRow },
+    { data: ambassadorRows },
   ] = await Promise.all([
     supabase
       .from('submissions')
@@ -93,13 +99,24 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
       .limit(EARLY_BIRD_COUNT),
     supabase
       .from('certifications')
-      .select('id')
+      .select('profile_id, email, first_name, last_name')
       .eq('kind', 'ambassador')
-      .not('verified_at', 'is', null)
-      .or(`profile_id.eq.${user.id}${email ? `,email.eq.${email}` : ''}`)
-      .limit(1)
-      .maybeSingle(),
+      .not('verified_at', 'is', null),
   ])
+
+  const userKey = nameMatchKey(profile?.first_name, profile?.last_name)
+  const hasCert = (ambassadorRows ?? []).some((row) => {
+    const r = row as {
+      profile_id: string | null
+      email: string | null
+      first_name: string | null
+      last_name: string | null
+    }
+    if (r.profile_id && r.profile_id === user.id) return true
+    if (email && r.email && r.email.toLowerCase() === email) return true
+    if (userKey && nameMatchKey(r.first_name, r.last_name) === userKey) return true
+    return false
+  })
 
   const earliestIds = new Set((earlyBirdRows ?? []).map((r) => r.id as string))
 
@@ -191,7 +208,7 @@ export async function getPlayerCardData(): Promise<PlayerCardData | null> {
 
   const visibleBadgesTotal = Object.keys(BADGES).length // currently 5
   const nextQuest = pickNextQuest({
-    hasCert: !!certRow,
+    hasCert,
     abstractCount: unique.filter((a) => a.status !== 'withdrawn').length,
     deptId: profile?.department_id ?? null,
   })

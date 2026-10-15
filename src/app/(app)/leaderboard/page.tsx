@@ -2,6 +2,7 @@ import { TrendingUp } from 'lucide-react'
 import {
   computePhase,
   getLeaderboardConfig,
+  phaseChapter,
   phaseSubheading,
 } from '@/lib/leaderboard/config'
 import { getGuildCounts, getThermometerCount } from '@/lib/leaderboard/queries'
@@ -38,6 +39,7 @@ export default async function LeaderboardPage() {
   ])
   const phase = computePhase(config, now)
   const sub = phaseSubheading(phase)
+  const chapter = phaseChapter(phase)
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5">
@@ -48,7 +50,14 @@ export default async function LeaderboardPage() {
             <TrendingUp size={22} />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-[#1E4D2B]">The Leaderboard</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-3xl font-bold text-[#1E4D2B]">The Leaderboard</h1>
+              {chapter && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#1E4D2B] text-white text-xs font-semibold uppercase tracking-wide">
+                  {chapter}
+                </span>
+              )}
+            </div>
             <p
               className="font-mono text-sm text-gray-700 mt-0.5"
               title={sub.hoverTitle}

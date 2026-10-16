@@ -12,6 +12,8 @@ import type {
 
 export type AuthorRole = 'author' | 'presenter' | 'mentor'
 
+export type MentorSlot = 'cvmbs_1' | 'cvmbs_2' | 'external'
+
 export type AuthorInput = {
   position: number
   profile_id: string | null
@@ -27,6 +29,11 @@ export type AuthorInput = {
   affiliation: string | null
   is_presenter: boolean
   is_mentor: boolean
+  // Which mentor slot this row belongs to. Only set on is_mentor rows; null for
+  // presenters/coauthors. Added 2026-10-16 to disambiguate Faculty Mentor 2 (now
+  // allowed to be non-CSU) from the Other Mentor slot — the two had become
+  // structurally identical in the DB. See the mentor_slot migration.
+  mentor_slot: MentorSlot | null
 }
 
 export type SubmissionInput = {
@@ -272,6 +279,7 @@ async function persistSubmission(
       affiliation: a.affiliation?.trim() || null,
       is_presenter: !!a.is_presenter,
       is_mentor: !!a.is_mentor,
+      mentor_slot: a.is_mentor ? a.mentor_slot ?? null : null,
     }))
 
   if (validAuthors.length > 0) {

@@ -41,6 +41,12 @@ export type MentorCvmbsState = {
   // yet in the faculty roster. Ignored when linked via the picker (department
   // comes from the linked faculty row).
   department_id: string | null
+  // Free-text affiliation for not_listed mode when the mentor isn't a CVMBS
+  // department pick (e.g. "Other CSU Department or Program" or "Non-CSU").
+  // Added 2026-10-16 so students with non-CVMBS or non-CSU faculty mentors can
+  // name their actual mentor without being forced into one of the 4 CVMBS dept
+  // chips. Ignored in picker mode.
+  affiliation: string
   // Optional; only needed to enable Green Labs Ambassador cert credit.
   // Ignored in picker mode (faculty roster carries the email).
   email: string
@@ -347,14 +353,21 @@ export function CvmbsMentorSlot({
           />
           <div>
             <div className="text-xs font-medium text-gray-600 mb-1">
-              Department
+              Department or affiliation
             </div>
             <AuthorAffiliationPicker
-              value={{ department_id: value.department_id, affiliation: '' }}
-              onChange={(p) => onChange({ department_id: p.department_id ?? null })}
+              value={{
+                department_id: value.department_id,
+                affiliation: value.affiliation,
+              }}
+              onChange={(p) =>
+                onChange({
+                  department_id: p.department_id ?? null,
+                  affiliation: p.affiliation ?? value.affiliation,
+                })
+              }
               departments={departments}
               disabled={disabled}
-              cvmbsOnly
             />
           </div>
         </div>

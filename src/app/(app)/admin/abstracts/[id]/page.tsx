@@ -96,6 +96,7 @@ export default async function AdminAbstractDetail({
           affiliation: string | null
           is_presenter: boolean
           is_mentor: boolean
+          mentor_slot: 'cvmbs_1' | 'cvmbs_2' | 'external' | null
         }
     )
     .sort((a, b) => a.position - b.position)
@@ -109,6 +110,7 @@ export default async function AdminAbstractDetail({
       affiliation: a.affiliation ?? null,
       is_presenter: a.is_presenter,
       is_mentor: a.is_mentor,
+      mentor_slot: a.mentor_slot ?? null,
     }))
 
   const initial: SubmissionInput = {

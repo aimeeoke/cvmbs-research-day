@@ -28,6 +28,7 @@ import {
   submitDraft,
   finalizeSubmission,
   type AuthorInput,
+  type MentorSlot,
   type SubmissionInput,
   type UserAmbassadorCert,
 } from './actions'
@@ -163,20 +164,7 @@ function deserialize(initial: SubmissionInput): FormState {
   const mentorRows = authors.filter((a) => a.is_mentor)
   const coauthorRows = authors.filter((a) => !a.is_presenter && !a.is_mentor)
 
-  // Save order is [Other, cvmbs2, cvmbs1] (last mentor by position is Faculty
-  // Mentor 1). The External Mentor row is identified by the absence of a
-  // faculty_id AND presence of affiliation data (new column, or the legacy
-  // " · " suffix in display_name for pre-migration drafts).
-  const externalRow = mentorRows.find(
-    (m) =>
-      !m.faculty_id &&
-      (!!m.affiliation ||
-        !!m.department_id ||
-        (m.display_name ?? '').includes(LEGACY_OTHER_MENTOR_SEP))
-  )
-  const cvmbsRows = mentorRows.filter((m) => m !== externalRow)
-  // Reverse so the highest-position CVMBS mentor becomes cvmbs1.
-  const [cvmbs1Row, cvmbs2Row] = [...cvmbsRows].reverse()
+  const { cvmbs1Row, cvmbs2Row, externalRow } = resolveMentorSlots(mentorRows)
 
   return {
     title: initial.title,
@@ -208,6 +196,7 @@ function deserialize(initial: SubmissionInput): FormState {
       faculty_id: cvmbs1Row?.faculty_id ?? null,
       name: cvmbs1Row?.display_name ?? '',
       department_id: cvmbs1Row?.department_id ?? null,
+      affiliation: cvmbs1Row?.affiliation ?? '',
       email: cvmbs1Row?.email ?? '',
     },
     mentor_cvmbs_2: {
@@ -215,6 +204,7 @@ function deserialize(initial: SubmissionInput): FormState {
       faculty_id: cvmbs2Row?.faculty_id ?? null,
       name: cvmbs2Row?.display_name ?? '',
       department_id: cvmbs2Row?.department_id ?? null,
+      affiliation: cvmbs2Row?.affiliation ?? '',
       email: cvmbs2Row?.email ?? '',
     },
     mentor_external: loadExternalMentor(externalRow ?? null),
@@ -225,6 +215,58 @@ function deserialize(initial: SubmissionInput): FormState {
       affiliation: c.affiliation ?? '',
       email: c.email ?? '',
     })),
+  }
+}
+
+/**
+ * Figure out which mentor row goes into which slot. New rows carry an explicit
+ * `mentor_slot` tag (set by the serializer below + persisted by the server
+ * action). Legacy rows don't have the tag, so we fall back to the old
+ * position-based heuristic for untagged mentors only.
+ */
+function resolveMentorSlots(mentorRows: AuthorInput[]): {
+  cvmbs1Row: AuthorInput | null
+  cvmbs2Row: AuthorInput | null
+  externalRow: AuthorInput | null
+} {
+  const tagged = {
+    cvmbs1Row: mentorRows.find((m) => m.mentor_slot === 'cvmbs_1') ?? null,
+    cvmbs2Row: mentorRows.find((m) => m.mentor_slot === 'cvmbs_2') ?? null,
+    externalRow: mentorRows.find((m) => m.mentor_slot === 'external') ?? null,
+  }
+  const untagged = mentorRows.filter((m) => !m.mentor_slot)
+  if (untagged.length === 0) return tagged
+
+  // Legacy fallback — mirror what the pre-10-16 code did: the Other Mentor row
+  // is the first untagged non-faculty mentor with any affiliation data (or the
+  // legacy " · " marker in display_name). Everything else is CVMBS, with the
+  // highest-position row becoming Faculty Mentor 1.
+  const legacyExternal =
+    tagged.externalRow ??
+    untagged.find(
+      (m) =>
+        !m.faculty_id &&
+        (!!m.affiliation ||
+          !!m.department_id ||
+          (m.display_name ?? '').includes(LEGACY_OTHER_MENTOR_SEP))
+    ) ??
+    null
+  const cvmbsLegacy = untagged.filter((m) => m !== legacyExternal)
+  // reverse() so the highest-position legacy CVMBS row fills whichever tagged
+  // slot is still empty (Mentor 1 first, then Mentor 2).
+  const legacyReversed = [...cvmbsLegacy].reverse()
+  let cvmbs1 = tagged.cvmbs1Row
+  let cvmbs2 = tagged.cvmbs2Row
+  for (const row of legacyReversed) {
+    if (!cvmbs1) cvmbs1 = row
+    else if (!cvmbs2) cvmbs2 = row
+    // 3+ legacy mentors shouldn't happen (external is 1, cvmbs is 2); if it
+    // does, extras are dropped silently rather than overflowing a slot.
+  }
+  return {
+    cvmbs1Row: cvmbs1,
+    cvmbs2Row: cvmbs2,
+    externalRow: legacyExternal,
   }
 }
 
@@ -246,6 +288,7 @@ function serializeAuthors(state: FormState): AuthorInput[] {
       affiliation: null,
       is_presenter: true,
       is_mentor: false,
+      mentor_slot: null,
     })
   }
 
@@ -260,6 +303,7 @@ function serializeAuthors(state: FormState): AuthorInput[] {
         affiliation: c.affiliation.trim() || null,
         is_presenter: false,
         is_mentor: false,
+        mentor_slot: null,
       })
     }
   }
@@ -276,10 +320,14 @@ function serializeAuthors(state: FormState): AuthorInput[] {
       affiliation: state.mentor_external.affiliation.trim() || null,
       is_presenter: false,
       is_mentor: true,
+      mentor_slot: 'external',
     })
   }
-  const cvmbsMentors = [state.mentor_cvmbs_2, state.mentor_cvmbs_1]
-  for (const m of cvmbsMentors) {
+  const cvmbsMentors: Array<{ state: MentorCvmbsState; slot: MentorSlot }> = [
+    { state: state.mentor_cvmbs_2, slot: 'cvmbs_2' },
+    { state: state.mentor_cvmbs_1, slot: 'cvmbs_1' },
+  ]
+  for (const { state: m, slot } of cvmbsMentors) {
     const hasName = m.name.trim().length > 0
     const hasFaculty = m.mode === 'picker' && !!m.faculty_id
     if (hasName || hasFaculty) {
@@ -295,9 +343,14 @@ function serializeAuthors(state: FormState): AuthorInput[] {
         // Only carry dept when the person typed a name (not_listed); when
         // linked via the picker the dept comes from the linked faculty row.
         department_id: m.mode === 'not_listed' ? m.department_id : null,
-        affiliation: null,
+        // Not-listed also carries free-text affiliation now (Non-CSU / Other
+        // CSU program). Picker-linked faculty leave this null — their dept
+        // lives on the faculty row.
+        affiliation:
+          m.mode === 'not_listed' ? m.affiliation.trim() || null : null,
         is_presenter: false,
         is_mentor: true,
+        mentor_slot: slot,
       })
     }
   }

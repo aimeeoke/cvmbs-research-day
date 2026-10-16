@@ -437,6 +437,8 @@ function validate(state: FormState): string | null {
     return 'Presenter email is required.'
   if (!state.mentor_cvmbs_1.name.trim())
     return 'Faculty Mentor 1 is required — pick a CVMBS faculty member or use "not listed" to type a name.'
+  if (state.presenter_previous_rd_count === null)
+    return 'Pick how many previous CVMBS Research Days the presenter has attended (bottom of Preferences).'
 
   const bylineLower = computeBylineNames(state).map((n) => n.toLowerCase())
   const mentorNames = [
@@ -587,7 +589,7 @@ export function SubmitForm(props: Props) {
       >
         <div className="grid sm:grid-cols-2 gap-4">
           <Field
-            label="Full name"
+            label="Full name (First Last)"
             required
             hint="Include middle initial only if used professionally."
           >
@@ -675,7 +677,7 @@ export function SubmitForm(props: Props) {
         </Field>
         <Field
           label="Affiliations"
-          hint="Centers, institutes, labs, programs, or training grants that support this work. Pick all that apply."
+          hint="Centers, institutes, labs, programs, or training grants that support this work. Pick all that apply — each one unlocks a new badge on the Leaderboard."
         >
           <AffiliationsPicker
             value={state.affiliations}
@@ -759,7 +761,7 @@ export function SubmitForm(props: Props) {
         <Field
           label="Abstract title"
           required
-          hint="Use the Italic button (or Ctrl+I) for species names — e.g. E. coli. Superscripts and subscripts work too."
+          hint="Use Title Case for the abstract title. Do not enter it in ALL CAPS. Use the Italic button (or Ctrl+I) for species names — e.g. E. coli. Superscripts and subscripts work too."
         >
           <RichTextEditor
             value={state.title}
@@ -886,7 +888,7 @@ export function SubmitForm(props: Props) {
             ))}
           </div>
         </Field>
-        <Field label="How many previous CVMBS Research Days have you presented at?">
+        <Field label="How many previous CVMBS Research Days have you presented at?" required>
           <div className="flex flex-wrap gap-2">
             {PREVIOUS_RD_OPTIONS.map((opt) => {
               const checked = state.presenter_previous_rd_count === opt.value

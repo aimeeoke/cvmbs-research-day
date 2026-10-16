@@ -1,13 +1,12 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { nameMatchKey } from '@/lib/name-match'
+import { authorIdentityKey, nameMatchKey } from '@/lib/name-match'
 import type {
   AuthorInput,
   SubmissionInput,
   UserAmbassadorCert,
 } from './actions'
-import { authorIdentityKey } from './author-certs-section'
 import { SubmitForm } from './submit-form'
 import type { FacultyOption } from './submit-authors'
 import type {

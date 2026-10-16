@@ -61,3 +61,25 @@ export function nameMatchKeyFromFullName(fullName: string | null | undefined): s
   const first = parts.slice(0, -1).join(' ')
   return nameMatchKey(first, last)
 }
+
+/**
+ * Stable dedupe/lookup key for an author row:
+ *   - lowercased email if the row has one, OR
+ *   - `name:${nameMatchKey}` from first+last name, OR
+ *   - null when the row can't be identified (no email, no name).
+ *
+ * Lives in a plain module (not a 'use client' file) so Server Components
+ * can call it. Importing a function from a 'use client' module into a
+ * Server Component turns it into a client reference, which fails at render.
+ */
+export function authorIdentityKey(row: {
+  email?: string | null
+  firstName?: string | null
+  lastName?: string | null
+}): string | null {
+  const em = (row.email ?? '').trim().toLowerCase()
+  if (em) return `email:${em}`
+  const nk = nameMatchKey(row.firstName, row.lastName)
+  if (nk) return `name:${nk}`
+  return null
+}

@@ -34,7 +34,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { nameMatchKey } from '@/lib/name-match'
+import { authorIdentityKey } from '@/lib/name-match'
 import {
   CERTIFICATIONS_ALLOWED_MIME,
   CERTIFICATIONS_MAX_BYTES,
@@ -53,27 +53,6 @@ export type AuthorRow = {
   roleLabel: 'Presenter' | 'Mentor' | 'Coauthor'
   firstName?: string | null
   lastName?: string | null
-}
-
-/**
- * Stable dedupe/lookup key for an author row:
- *   - lowercased email if the row has one, OR
- *   - `name:${nameMatchKey}` from first+last name, OR
- *   - null when the row can't be identified (no email, no name).
- *
- * Exported so the server-side initialCerts map in page.tsx can key with the
- * same logic.
- */
-export function authorIdentityKey(row: {
-  email?: string | null
-  firstName?: string | null
-  lastName?: string | null
-}): string | null {
-  const em = (row.email ?? '').trim().toLowerCase()
-  if (em) return `email:${em}`
-  const nk = nameMatchKey(row.firstName, row.lastName)
-  if (nk) return `name:${nk}`
-  return null
 }
 
 type Props = {

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { LogIn, LogOut, X, Menu } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { publicNav, authNav, utilityNav, adminNav, type NavItem } from '@/lib/nav'
+import { publicNav, authNav, presenterNav, utilityNav, adminNav, type NavItem } from '@/lib/nav'
 
 type Props = {
   signedIn: boolean
@@ -14,11 +14,14 @@ type Props = {
    *  sidebar link either way. Committee members hit the same /admin route
    *  and are further gated inside (see /admin/requests/layout.tsx). */
   showAdminLink: boolean
+  /** True when the user is the presenter on a non-withdrawn active-event
+   *  submission — shows the game-mode (/achievements) sidebar entry. */
+  showPresenterLinks: boolean
   displayName?: string | null
   displayEmail?: string | null
 }
 
-export function SiteSidebar({ signedIn, showAdminLink, displayName, displayEmail }: Props) {
+export function SiteSidebar({ signedIn, showAdminLink, showPresenterLinks, displayName, displayEmail }: Props) {
   const pathname = usePathname() || '/'
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -30,6 +33,7 @@ export function SiteSidebar({ signedIn, showAdminLink, displayName, displayEmail
   const items: NavItem[] = [
     ...publicNav,
     ...(signedIn ? authNav : []),
+    ...(showPresenterLinks ? presenterNav : []),
   ]
 
   return (

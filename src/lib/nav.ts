@@ -5,6 +5,7 @@ import {
   Calendar,
   FileText,
   Gavel,
+  Gamepad2,
   Leaf,
   Settings,
   ShieldCheck,
@@ -43,6 +44,13 @@ export const publicNav: NavItem[] = [
 export const authNav: NavItem[] = [
   { href: '/abstracts', label: 'Abstract Portal', icon: FileText, match: startsWith('/abstracts') },
   { href: '/judge', label: 'Volunteer to Judge', icon: Gavel, match: startsWith('/judge') },
+]
+
+/** Presenter-only "game mode" items. Shown ONLY to users who are the
+ *  presenter on a non-withdrawn active-event submission. Deliberately
+ *  isolated from the main site vibe — see /achievements/page.tsx. */
+export const presenterNav: NavItem[] = [
+  { href: '/achievements', label: 'Achievements', icon: Gamepad2, match: startsWith('/achievements') },
 ]
 
 /** Bottom-of-sidebar utilities. */

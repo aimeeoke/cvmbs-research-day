@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FileText, Inbox, Leaf, ShieldCheck, TrendingUp, Users } from 'lucide-react'
+import { FileText, Gamepad2, Inbox, Leaf, ShieldCheck, TrendingUp, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 
@@ -19,6 +19,7 @@ export default async function AdminHome() {
     { count: totalSubmissions },
     { count: unlinkedAuthors },
     { count: pendingCerts },
+    { count: badgeOverrides },
   ] = await Promise.all([
     supabase
       .from('role_requests')
@@ -40,6 +41,7 @@ export default async function AdminHome() {
       .from('certifications')
       .select('id', { count: 'exact', head: true })
       .is('verified_at', null),
+    supabase.from('badge_overrides').select('id', { count: 'exact', head: true }),
   ])
 
   return (
@@ -95,6 +97,13 @@ export default async function AdminHome() {
             hint="Phase milestones, thermometer values, Green Pipette scoring, and feature flags."
           />
         )}
+        <AdminCard
+          href="/admin/badges"
+          icon={<Gamepad2 size={22} />}
+          title="Badge review"
+          badge={badgeOverrides ?? undefined}
+          hint="Which achievement each abstract triggers (/achievements), plus grant/revoke overrides when the keyword logic misses or false-matches."
+        />
       </div>
     </div>
   )

@@ -16,6 +16,13 @@ import { Lock } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
+// Families that keep showing locked / hint tiles so trainees know what's
+// still on the board. Everything else only renders earned cards.
+const HINT_FAMILIES: ReadonlySet<AchievementFamily> = new Set([
+  'green_labs',
+  'day_of',
+])
+
 export default async function AchievementsPage() {
   const data = await getAchievementsPageData()
   if (!data) redirect('/login?next=/achievements')
@@ -47,10 +54,6 @@ export default async function AchievementsPage() {
   }
 
   const earnedCount = data.earned.size
-  const totalCount = ACHIEVEMENT_LIST.length
-  const livableCount = ACHIEVEMENT_LIST.filter(
-    (a) => a.availability === 'live' || a.availability === 'phase2'
-  ).length
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -58,34 +61,25 @@ export default async function AchievementsPage() {
       <div className="relative overflow-hidden border-b border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950">
         <div className="relative mx-auto max-w-6xl px-6 py-10">
           <p className="text-xs uppercase tracking-[0.3em] text-indigo-300/70">
-            Dungeon Crawler Log — Research Day 2027
+            Research Crawler Log — Research Day 2027
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
             {data.displayName}
           </h1>
           <div className="mt-4 flex flex-wrap gap-4 text-sm">
             <StatPill
-              label="Achievements"
-              value={`${earnedCount} / ${totalCount}`}
-              detail={`${livableCount} currently obtainable`}
+              label="Achievements earned"
+              value={String(earnedCount)}
             />
             <StatPill label="Abstracts on file" value={String(data.abstractCount)} />
             {data.firstBloodHolder && (
               <StatPill
                 label="⚔️ First Blood holder"
                 value={data.firstBloodHolder}
-                detail="Earliest submitted_at of the season"
+                detail="Earliest Draft Submission of the season"
               />
             )}
           </div>
-          <p className="mt-4 max-w-2xl text-sm text-slate-400">
-            Secret achievements show as{' '}
-            <span className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-xs font-mono">
-              <Lock className="h-3 w-3" />???
-            </span>{' '}
-            until the system catches one in the wild. Discover them in your
-            abstract — they trigger automatically. The system is watching.
-          </p>
         </div>
       </div>
 
@@ -94,19 +88,22 @@ export default async function AchievementsPage() {
         {families.map((family) => {
           const list = byFamily.get(family) ?? []
           if (list.length === 0) return null
-          const earnedInFamily = list.filter((a) => data.earned.has(a.key)).length
+
+          const showHints = HINT_FAMILIES.has(family)
+          const visibleList = showHints
+            ? list
+            : list.filter((a) => data.earned.has(a.key))
+          if (visibleList.length === 0) return null
+
           return (
             <section key={family}>
               <div className="mb-4 flex items-end justify-between gap-4">
                 <h2 className="text-xl font-semibold text-slate-100">
                   {FAMILY_LABELS[family]}
                 </h2>
-                <p className="text-sm text-slate-400">
-                  {earnedInFamily} / {list.length}
-                </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {list.map((a) => (
+                {visibleList.map((a) => (
                   <AchievementCard
                     key={a.key}
                     achievement={a}
@@ -212,11 +209,6 @@ function AchievementCard({
             {achievement.availability === 'phase2' && !earned && (
               <span className="inline-block rounded border border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] uppercase tracking-wider text-amber-200">
                 Coming soon
-              </span>
-            )}
-            {achievement.availability === 'deferred' && !earned && (
-              <span className="inline-block rounded border border-slate-500/40 bg-slate-700/40 px-1.5 text-[10px] uppercase tracking-wider text-slate-300">
-                After the event
               </span>
             )}
           </div>

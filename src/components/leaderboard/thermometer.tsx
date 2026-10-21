@@ -104,7 +104,7 @@ function buildSubline(
     return 'GOAL SMASHED! 🎉 A Research Day surprise is unlocked.'
   if (current && next) {
     const remaining = next.start - count
-    return `${remaining} more to reach ${next.label}. Next unlock: a hint about this year's surprise.`
+    return `${remaining} more to reach ${next.label}.`
   }
   if (count === 0) return 'The first abstract will light this up.'
   return `${goal - count} more to the goal.`

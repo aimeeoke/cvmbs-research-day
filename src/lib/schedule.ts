@@ -28,7 +28,7 @@ export const scheduleData: ScheduleEvent[] = [
   {
     time: '10:15 – 11:15 am',
     title: 'Undergraduate Poster Session',
-    location: 'Grand Events Hall',
+    location: 'Grant Event Hall',
     type: 'session',
   },
   {
@@ -41,7 +41,7 @@ export const scheduleData: ScheduleEvent[] = [
     time: '11:30 – 1:30 pm',
     title: 'Session I',
     description:
-      'Oral Session 1A: Foundational Science (Auditorium)\nOral Session 1B: Translational Science (Boardroom)\nPoster Session 1: Odd numbers (Grand Events Hall)',
+      'Oral Session 1A: Foundational Science (Auditorium)\nOral Session 1B: Translational Science (Boardroom)\nPoster Session 1: Odd numbers (Grant Event Hall)',
     type: 'session',
   },
   {
@@ -54,13 +54,13 @@ export const scheduleData: ScheduleEvent[] = [
     time: '1:45 – 3:45 pm',
     title: 'Session II',
     description:
-      'Oral Session 2A: Foundational Science (Boardroom)\nOral Session 2B: Veterinary Clinical Science (Auditorium)\nPoster Session 2: Even numbers (Grand Events Hall)',
+      'Oral Session 2A: Foundational Science (Boardroom)\nOral Session 2B: Veterinary Clinical Science (Auditorium)\nPoster Session 2: Even numbers (Grant Event Hall)',
     type: 'session',
   },
   {
     time: '3:45 – 4:15 pm',
     title: 'Refreshments & Desserts',
-    location: 'Grand Events Hall',
+    location: 'Grant Event Hall',
     description: 'Remove all posters.',
     type: 'social',
   },

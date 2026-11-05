@@ -26,40 +26,40 @@ export const scheduleData: ScheduleEvent[] = [
     type: 'general',
   },
   {
-    time: '10:15 – 11:15 am',
+    time: '10:15 – 11:00 am',
     title: 'Undergraduate Poster Session',
     location: 'Grant Event Hall',
     type: 'session',
   },
   {
-    time: '11:15 – 11:30 am',
+    time: '11:00 – 11:15 am',
     title: 'Break',
     description: 'Undergrads remove posters.',
     type: 'break',
   },
   {
-    time: '11:30 – 1:30 pm',
+    time: '11:15 am – 1:15 pm',
     title: 'Session I',
     description:
       'Oral Session 1A: Foundational Science (Auditorium)\nOral Session 1B: Translational Science (Boardroom)\nPoster Session 1: Odd numbers (Grant Event Hall)',
     type: 'session',
   },
   {
-    time: '1:30 – 1:45 pm',
+    time: '1:15 – 1:30 pm',
     title: 'Break',
     description: 'Remove odd posters, hang even posters.',
     type: 'break',
   },
   {
-    time: '1:45 – 3:45 pm',
+    time: '1:30 – 3:30 pm',
     title: 'Session II',
     description:
       'Oral Session 2A: Foundational Science (Boardroom)\nOral Session 2B: Veterinary Clinical Science (Auditorium)\nPoster Session 2: Even numbers (Grant Event Hall)',
     type: 'session',
   },
   {
-    time: '3:45 – 4:15 pm',
-    title: 'Refreshments & Desserts',
+    time: '3:30 – 4:15 pm',
+    title: 'Reception',
     location: 'Grant Event Hall',
     description: 'Remove all posters.',
     type: 'social',

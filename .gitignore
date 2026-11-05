@@ -51,6 +51,11 @@ yarn-error.log*
 # - docs/Affiliations.csv  → regenerate list via `node scripts/load-affiliations.mjs`
 /docs/
 
+# Generated attachments for comms sprints — the .md sources are committed,
+# the Word/PDF exports are regenerated from them on demand.
+tasks/comms-*/*.docx
+tasks/comms-*/*.pdf
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

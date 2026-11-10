@@ -273,6 +273,7 @@ export default async function SubmitPage({
       facultyOptions={facultyOptions}
       editingLocked={editingLocked}
       finalizeDeadline={event.finalize_deadline_at}
+      submissionClosesAt={event.submission_closes_at ?? null}
       isSubmitter={submission.submitter_id === user.id}
       currentUser={
         user.email

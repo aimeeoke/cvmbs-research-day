@@ -218,7 +218,7 @@ function StatusPill({ status }: { status: SubmissionStatus }) {
           : 'bg-red-100 text-red-800'
   const label =
     status === 'draft'
-      ? 'Draft'
+      ? 'Draft saved'
       : status === 'submitted'
         ? 'Submitted'
         : status === 'finalized'

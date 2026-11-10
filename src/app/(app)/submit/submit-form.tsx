@@ -48,6 +48,11 @@ type Props = {
   facultyOptions: FacultyOption[]
   editingLocked: boolean
   finalizeDeadline: string | null
+  /** Submission close deadline (Nov 16). Gates whether the lock-related
+   *  subtitle copy renders — kept hidden until we're past this date so
+   *  submitters focused on drafting don't see premature "submissions lock
+   *  automatically" messaging. */
+  submissionClosesAt: string | null
   isSubmitter: boolean
   /** Admin read-only view — locks the form, hides mentor/edit banners, swaps header. */
   adminView?: boolean
@@ -572,7 +577,7 @@ export function SubmitForm(props: Props) {
       setBanner({ tone: 'error', text: err })
       return
     }
-    run(submitDraft, 'submitted', 'Submitted. You can keep editing until the finalize deadline.')
+    run(submitDraft, 'submitted', 'Submitted. You can keep editing until the deadline.')
   }
 
   const onFinalize = () => {
@@ -604,6 +609,7 @@ export function SubmitForm(props: Props) {
         <StatusHeader
           status={status}
           finalizeDeadline={props.finalizeDeadline}
+          submissionClosesAt={props.submissionClosesAt}
           editingLocked={props.editingLocked}
         />
       )}
@@ -1013,15 +1019,17 @@ export function SubmitForm(props: Props) {
               Submit draft
             </button>
           )}
-          <button
-            type="button"
-            onClick={onFinalize}
-            disabled={isPending}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-[#1E4D2B] text-[#1E4D2B] text-sm font-semibold hover:bg-[#1E4D2B]/5 disabled:opacity-50"
-          >
-            <Lock size={16} />
-            Finalize &amp; lock
-          </button>
+          {props.adminView && (
+            <button
+              type="button"
+              onClick={onFinalize}
+              disabled={isPending}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-[#1E4D2B] text-[#1E4D2B] text-sm font-semibold hover:bg-[#1E4D2B]/5 disabled:opacity-50"
+            >
+              <Lock size={16} />
+              Finalize &amp; lock
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -1056,10 +1064,12 @@ function AdminViewHeader({ status }: { status: SubmissionStatus }) {
 function StatusHeader({
   status,
   finalizeDeadline,
+  submissionClosesAt,
   editingLocked,
 }: {
   status: SubmissionStatus
   finalizeDeadline: string | null
+  submissionClosesAt: string | null
   editingLocked: boolean
 }) {
   const label = statusLabel(status)
@@ -1078,11 +1088,19 @@ function StatusHeader({
       })
     : null
 
+  // Suppress lock-related subtitle copy until we're past the submission
+  // close (Nov 16). Pre-close, submitters are focused on drafting and
+  // mentioning auto-lock creates unnecessary anxiety. Null means we don't
+  // know the close date → treat as pre-close and hide.
+  const pastSubmissionClose = submissionClosesAt
+    ? Date.now() > new Date(submissionClosesAt).getTime()
+    : false
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
       <div>
         <h1 className="text-2xl font-bold text-[#1E4D2B]">Your Submission</h1>
-        {deadlineText && (
+        {pastSubmissionClose && deadlineText && (
           <p className="text-sm text-gray-600 mt-0.5">
             {status === 'finalized'
               ? `Finalized. This submission is locked.`
@@ -1105,7 +1123,7 @@ function StatusHeader({
 function statusLabel(s: SubmissionStatus): string {
   switch (s) {
     case 'draft':
-      return 'Draft'
+      return 'Draft saved'
     case 'submitted':
       return 'Submitted'
     case 'finalized':

@@ -189,6 +189,7 @@ export default async function AdminAbstractDetail({
         facultyOptions={facultyOptions}
         editingLocked
         finalizeDeadline={event?.finalize_deadline_at ?? null}
+        submissionClosesAt={event?.submission_closes_at ?? null}
         isSubmitter={false}
         adminView
       />

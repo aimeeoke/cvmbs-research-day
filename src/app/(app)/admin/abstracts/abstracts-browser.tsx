@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react'
 import type { SubmissionStatus } from '@/lib/types/database'
 import { RichTextView } from '@/components/rich-text-view'
 import { richTextIsEmpty, richTextToPlainText } from '@/lib/rich-text'
@@ -33,6 +33,44 @@ type Department = { id: string; name: string }
 
 const SESSION_OPTIONS = ['Undergraduate poster', 'Early', 'Late', 'No preference']
 
+type SortField = 'presenter' | 'title' | 'status' | 'updated'
+type SortDir = 'asc' | 'desc'
+
+// Status is sorted by workflow order (draft → submitted → finalized → withdrawn)
+// rather than alphabetically — alphabetical ordering ('Draft, Finalized,
+// Submitted, Withdrawn') doesn't match how admins think about the queue.
+const STATUS_RANK: Record<SubmissionStatus, number> = {
+  draft: 0,
+  submitted: 1,
+  finalized: 2,
+  withdrawn: 3,
+}
+
+// "Last name" = the final whitespace-separated token in the presenter's
+// display name. Good enough for this list — handles "First Last" and
+// "First Middle Last" naturally; "Jane Smith Jr." will sort under J
+// which is fine for a human eyeballing the list.
+function presenterLastName(name: string | null): string {
+  if (!name) return ''
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return (parts[parts.length - 1] ?? '').toLowerCase()
+}
+
+function rowSortKey(r: BrowserRow, field: SortField): string | number {
+  switch (field) {
+    case 'presenter':
+      return presenterLastName(r.presenter_name)
+    case 'title':
+      return richTextToPlainText(r.title).trim().toLowerCase()
+    case 'status':
+      return STATUS_RANK[r.status]
+    case 'updated': {
+      const t = r.finalized_at ?? r.submitted_at ?? r.created_at
+      return t ? new Date(t).getTime() : 0
+    }
+  }
+}
+
 export function AbstractsBrowser({
   rows,
   departments,
@@ -55,10 +93,24 @@ export function AbstractsBrowser({
   const [deptF, setDeptF] = useState(initialDept)
   const [sessionF, setSessionF] = useState(initialSession)
   const [query, setQuery] = useState(initialQuery)
+  // Default to presenter last-name ascending — primary admin workflow is
+  // locating a submitter by last name. Click a header to change.
+  const [sortField, setSortField] = useState<SortField>('presenter')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const toggleSort = (field: SortField) => {
+    if (field === sortField) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      // Dates feel more natural newest-first; text fields A→Z.
+      setSortDir(field === 'updated' ? 'desc' : 'asc')
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return rows.filter((r) => {
+    const matched = rows.filter((r) => {
       if (statusF && r.status !== statusF) return false
       if (deptF && r.department_id !== deptF) return false
       if (sessionF && r.session_preference !== sessionF) return false
@@ -79,7 +131,26 @@ export function AbstractsBrowser({
       }
       return true
     })
-  }, [rows, statusF, deptF, sessionF, query])
+
+    const sorted = matched.slice().sort((a, b) => {
+      const av = rowSortKey(a, sortField)
+      const bv = rowSortKey(b, sortField)
+      if (av === bv) {
+        // Tiebreaker so rows don't shuffle unpredictably — always presenter
+        // last name ascending as the secondary sort.
+        const al = presenterLastName(a.presenter_name)
+        const bl = presenterLastName(b.presenter_name)
+        return al.localeCompare(bl)
+      }
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return sortDir === 'asc' ? av - bv : bv - av
+      }
+      const cmp = String(av).localeCompare(String(bv))
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+
+    return sorted
+  }, [rows, statusF, deptF, sessionF, query, sortField, sortDir])
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 space-y-4">
@@ -147,14 +218,39 @@ export function AbstractsBrowser({
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-700 text-xs uppercase tracking-wide">
               <tr>
-                <th className="px-3 py-2 text-left font-semibold">Presenter</th>
-                <th className="px-3 py-2 text-left font-semibold">Title</th>
-                <th className="px-3 py-2 text-left font-semibold">Status</th>
+                <SortableTh
+                  field="presenter"
+                  label="Presenter"
+                  sortField={sortField}
+                  sortDir={sortDir}
+                  onClick={toggleSort}
+                />
+                <SortableTh
+                  field="title"
+                  label="Title"
+                  sortField={sortField}
+                  sortDir={sortDir}
+                  onClick={toggleSort}
+                />
+                <SortableTh
+                  field="status"
+                  label="Status"
+                  sortField={sortField}
+                  sortDir={sortDir}
+                  onClick={toggleSort}
+                />
                 <th className="px-3 py-2 text-left font-semibold">Mentor(s)</th>
                 <th className="px-3 py-2 text-left font-semibold">
                   Session pref
                 </th>
-                <th className="px-3 py-2 text-right font-semibold">Updated</th>
+                <SortableTh
+                  field="updated"
+                  label="Updated"
+                  align="right"
+                  sortField={sortField}
+                  sortDir={sortDir}
+                  onClick={toggleSort}
+                />
                 {isAdmin && (
                   <th className="px-3 py-2 text-right font-semibold w-10"></th>
                 )}
@@ -235,6 +331,40 @@ export function AbstractsBrowser({
         </div>
       )}
     </div>
+  )
+}
+
+function SortableTh({
+  field,
+  label,
+  align = 'left',
+  sortField,
+  sortDir,
+  onClick,
+}: {
+  field: SortField
+  label: string
+  align?: 'left' | 'right'
+  sortField: SortField
+  sortDir: SortDir
+  onClick: (f: SortField) => void
+}) {
+  const active = sortField === field
+  const Icon = !active ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown
+  return (
+    <th className={`px-3 py-2 ${align === 'right' ? 'text-right' : 'text-left'} font-semibold`}>
+      <button
+        type="button"
+        onClick={() => onClick(field)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide ${
+          align === 'right' ? 'flex-row-reverse' : ''
+        } ${active ? 'text-[#1E4D2B]' : 'text-gray-700 hover:text-gray-900'}`}
+        aria-label={`Sort by ${label}`}
+      >
+        {label}
+        <Icon size={12} className={active ? '' : 'text-gray-400'} />
+      </button>
+    </th>
   )
 }
 

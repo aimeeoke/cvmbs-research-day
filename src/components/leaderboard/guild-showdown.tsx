@@ -2,39 +2,35 @@ import { GUILDS, type GuildKey } from '@/lib/leaderboard/guilds'
 
 type Props = {
   counts: Record<GuildKey, number>
-  cohorts: Record<GuildKey, number>
 }
 
 /**
- * Guild race scored as % of each guild's 2026 cohort who have an abstract
- * in — so small guilds (Research Staff with 4 potential presenters) can
- * win against large ones (DVM with 59). Guilds with zero abstracts aren't
+ * Guild race scored as raw abstract count — 2027 has no cohort numbers
+ * to normalize against yet, and the cohort-weighted version was
+ * confusing without that reference. Guilds with zero abstracts aren't
  * ranked; they appear in a footer as "Waiting for a first entry". Ties
- * share rank (T-N).
+ * share rank (T-N). Bars are scaled relative to the leader so the
+ * visual pecking order still reads at a glance.
  */
-export default function GuildShowdown({ counts, cohorts }: Props) {
-  const scored = GUILDS.map((g) => {
-    const count = counts[g.key] ?? 0
-    const cohort = cohorts[g.key] ?? 0
-    const percent = cohort > 0 ? count / cohort : 0
-    return { ...g, count, cohort, percent }
-  })
+export default function GuildShowdown({ counts }: Props) {
+  const scored = GUILDS.map((g) => ({ ...g, count: counts[g.key] ?? 0 }))
 
   const racing = scored.filter((r) => r.count > 0)
   const waiting = scored.filter((r) => r.count === 0)
 
-  // Sort racers high → low on percent. Then assign tie-aware ranks:
+  // Sort racers high → low on count. Then assign tie-aware ranks:
   // 1, 2, T-3, T-3, 5. ("T-" prefix only when two or more guilds tie.)
-  racing.sort((a, b) => b.percent - a.percent)
+  racing.sort((a, b) => b.count - a.count)
   const ranks: Array<{ label: string }> = []
   for (let i = 0; i < racing.length; i++) {
     const r = racing[i]
-    // Count how many share this exact percent, and find the leftmost index.
-    const same = racing.filter((x) => x.percent === r.percent)
-    const firstIdx = racing.findIndex((x) => x.percent === r.percent)
+    const same = racing.filter((x) => x.count === r.count)
+    const firstIdx = racing.findIndex((x) => x.count === r.count)
     const rank = firstIdx + 1
     ranks.push({ label: same.length > 1 ? `T-${rank}` : `${rank}` })
   }
+
+  const leaderCount = racing[0]?.count ?? 0
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
@@ -43,15 +39,14 @@ export default function GuildShowdown({ counts, cohorts }: Props) {
           ⚔️ Guild Showdown
         </h2>
         <p className="font-mono text-xs text-gray-600 mt-0.5">
-          Bars show progress toward each guild&apos;s own 2026 total, so small
-          guilds can win.
+          Abstracts submitted by each guild. Bars scale to the leader.
         </p>
       </div>
 
       {racing.length > 0 ? (
         <ol className="space-y-2">
           {racing.map((r, idx) => {
-            const pct = Math.min(100, r.percent * 100)
+            const pct = leaderCount > 0 ? (r.count / leaderCount) * 100 : 0
             return (
               <li key={r.key} className="space-y-1">
                 <div className="flex items-baseline justify-between gap-2 text-sm">
@@ -65,8 +60,7 @@ export default function GuildShowdown({ counts, cohorts }: Props) {
                     {r.label}
                   </span>
                   <span className="font-semibold text-[#1E4D2B]">
-                    {r.count} of {r.cohort}
-                    <span className="text-gray-500 font-normal text-xs"> · {Math.round(pct)}%</span>
+                    {r.count}
                   </span>
                 </div>
                 <div className="h-3 rounded-full bg-gray-100 border border-gray-200 overflow-hidden">

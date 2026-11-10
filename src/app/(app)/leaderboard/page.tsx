@@ -84,16 +84,7 @@ export default async function LeaderboardPage() {
         )}
 
         {config.show_guild_showdown && (
-          <GuildShowdown
-            counts={guilds.counts}
-            cohorts={{
-              undergrad: config.guild_cohort_undergrad,
-              grad: config.guild_cohort_grad,
-              dvm: config.guild_cohort_dvm,
-              postdoc_resident_intern: config.guild_cohort_postdoc_resident_intern,
-              staff: config.guild_cohort_staff,
-            }}
-          />
+          <GuildShowdown counts={guilds.counts} />
         )}
 
         {config.show_green_pipette && <GreenPipette result={greenPipette} />}

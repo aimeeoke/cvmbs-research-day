@@ -9,17 +9,17 @@ export const metadata = { title: 'Volunteer to Judge · CVMBS Research Day' }
 const TIME_SLOTS: TimeSlot[] = [
   {
     id: 'undergrad_poster',
-    label: '10:15 – 11:00 am',
+    label: '10:00 – 10:45 am',
     hint: 'Undergraduate poster session',
   },
   {
     id: 'session_1',
-    label: '11:15 am – 1:15 pm',
+    label: '11:00 am – 1:00 pm',
     hint: 'Session I — Oral 1A/1B + poster session 1 (odd numbers)',
   },
   {
     id: 'session_2',
-    label: '1:30 – 3:30 pm',
+    label: '1:15 – 3:15 pm',
     hint: 'Session II — Oral 2A/2B + poster session 2 (even numbers)',
   },
 ]

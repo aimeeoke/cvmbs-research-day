@@ -142,9 +142,9 @@ const PRESENTATION_PREFS: PreferredPresentationType[] = [
 ]
 
 const SESSION_PREFS: { value: SessionPreference; label: string }[] = [
-  { value: 'Undergraduate poster', label: 'Undergraduate poster (10:15–11:00 am)' },
-  { value: 'Early', label: 'Early (11:15 am – 1:15 pm)' },
-  { value: 'Late', label: 'Late (1:30 – 3:30 pm)' },
+  { value: 'Undergraduate poster', label: 'Undergraduate poster (10:00–10:45 am)' },
+  { value: 'Early', label: 'Early (11:00 am – 1:00 pm)' },
+  { value: 'Late', label: 'Late (1:15 – 3:15 pm)' },
   { value: 'No preference', label: 'No preference' },
 ]
 

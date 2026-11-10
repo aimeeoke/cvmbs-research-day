@@ -76,7 +76,7 @@ export function phaseSubheading(phase: LeaderboardPhase): { text: string; hoverT
     case 'race_on':
       return { text: 'The race is on! Every abstract, every ambassador and every judge counts.' }
     case 'event':
-      return { text: "It's Research Day! 🔴 Scores drop at 11:30 and 1:45." }
+      return { text: "It's Research Day! 🔴 Scores drop at 11:15 and 1:30." }
     case 'sealed':
       return { text: '🔒 Results sealed. Winners revealed at the awards ceremony!' }
     case 'champions':

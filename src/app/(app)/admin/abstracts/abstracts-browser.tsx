@@ -213,20 +213,34 @@ export function AbstractsBrowser({
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs text-gray-500">
           Showing {filtered.length} of {rows.length}
         </div>
-        <button
-          type="button"
-          onClick={() => exportTrackingCsv(filtered)}
-          disabled={filtered.length === 0}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#1E4D2B] text-[#1E4D2B] text-xs font-semibold hover:bg-[#1E4D2B]/5 disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Download the current filter + sort as a CSV"
-        >
-          <Download size={14} />
-          Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          {filtered.length !== rows.length && (
+            <button
+              type="button"
+              onClick={() => exportTrackingCsv(filtered, 'view')}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#1E4D2B] text-[#1E4D2B] text-xs font-semibold hover:bg-[#1E4D2B]/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Download only the rows matching your current filter + search"
+            >
+              <Download size={14} />
+              Export view ({filtered.length})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => exportTrackingCsv(rows, 'all')}
+            disabled={rows.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#1E4D2B] text-white text-xs font-semibold hover:bg-[#163d22] disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Download every abstract regardless of filter"
+          >
+            <Download size={14} />
+            Export all ({rows.length})
+          </button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -354,12 +368,29 @@ export function AbstractsBrowser({
   )
 }
 
+// Split a "First [Middle] Last" string into first + last so admins can
+// sort by last name in Excel without running text-to-columns. Last name
+// = the final whitespace token; everything before is the first-name
+// bucket. Single-token names (or email fallback for unknown submitters)
+// drop into last name so a last-name sort groups them sensibly.
+function splitPersonName(name: string | null): { first: string; last: string } {
+  if (!name) return { first: '', last: '' }
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return { first: '', last: '' }
+  if (parts.length === 1) return { first: '', last: parts[0] }
+  return {
+    first: parts.slice(0, -1).join(' '),
+    last: parts[parts.length - 1],
+  }
+}
+
 // Tracking-CSV column spec. One row per abstract, no deep author list
 // and no abstract body — that stuff goes to the detail page. See
 // src/lib/csv-export.ts for the deferred "topic / research-area" export
 // note; that one needs a classifier + semantic search before it's useful.
 const TRACKING_CSV_COLUMNS: CsvColumn<BrowserRow>[] = [
-  { header: 'Presenter', value: (r) => r.presenter_name ?? '' },
+  { header: 'Presenter first name', value: (r) => splitPersonName(r.presenter_name).first },
+  { header: 'Presenter last name', value: (r) => splitPersonName(r.presenter_name).last },
   { header: 'Presenter email', value: (r) => r.presenter_email ?? '' },
   { header: 'Classification', value: (r) => r.classification ?? '' },
   { header: 'Department', value: (r) => r.department_name ?? '' },
@@ -369,7 +400,8 @@ const TRACKING_CSV_COLUMNS: CsvColumn<BrowserRow>[] = [
   { header: 'Research type', value: (r) => r.research_type ?? '' },
   { header: 'Session preference', value: (r) => r.session_preference ?? '' },
   { header: 'Preferred presentation type', value: (r) => r.preferred_presentation_type ?? '' },
-  { header: 'Submitter', value: (r) => r.submitter_name ?? '' },
+  { header: 'Submitter first name', value: (r) => splitPersonName(r.submitter_name).first },
+  { header: 'Submitter last name', value: (r) => splitPersonName(r.submitter_name).last },
   { header: 'Submitter email', value: (r) => r.submitter_email ?? '' },
   { header: 'Submitted at (MT)', value: (r) => formatEventTime(r.submitted_at) },
   { header: 'Finalized at (MT)', value: (r) => formatEventTime(r.finalized_at) },
@@ -377,9 +409,10 @@ const TRACKING_CSV_COLUMNS: CsvColumn<BrowserRow>[] = [
   { header: 'Withdrawal requested at (MT)', value: (r) => formatEventTime(r.withdrawal_requested_at) },
 ]
 
-function exportTrackingCsv(rows: readonly BrowserRow[]) {
+function exportTrackingCsv(rows: readonly BrowserRow[], scope: 'view' | 'all') {
   const csv = buildCsv(rows, TRACKING_CSV_COLUMNS)
-  downloadCsv(`cvmbs-abstracts-tracking-${dateStamp()}.csv`, csv)
+  const suffix = scope === 'view' ? 'filtered' : 'all'
+  downloadCsv(`cvmbs-abstracts-${suffix}-${dateStamp()}.csv`, csv)
 }
 
 function SortableTh({

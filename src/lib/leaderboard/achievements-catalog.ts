@@ -99,12 +99,10 @@ export type AchievementKey =
   | 'first_timer'
   | 'veteran_3'
   | 'veteran_5'
-  // Day-of (5)
+  // Day-of (3)
   | 'certified_judgy'
   | 'conversation_starter'
   | 'peer_reviewed_pic'
-  | 'final_floor'
-  | 'present_and_accounted_for'
 
 export type Achievement = {
   key: AchievementKey
@@ -581,20 +579,6 @@ export const ACHIEVEMENTS: Record<AchievementKey, Achievement> = {
     announcer: 'Your photo passed peer review. Two moderators looked at it and neither asked for revisions. A first in academic history. Reward: your face on the big screen, possibly mid-blink.',
     rarity: 'uncommon', family: 'day_of', visible: true, availability: 'deferred',
   },
-  final_floor: {
-    key: 'final_floor',
-    emoji: '🎊', label: 'Final Floor',
-    blurb: 'Scanned the QR code at the start of the awards ceremony.',
-    announcer: 'You stayed for the awards ceremony. Most attendees vanish when the last poster comes down. You made it to the final floor. Reward: knowing who won half a second before everyone else checks their phone.',
-    rarity: 'uncommon', family: 'day_of', visible: true, availability: 'deferred',
-  },
-  present_and_accounted_for: {
-    key: 'present_and_accounted_for',
-    emoji: '✅', label: 'Present and Accounted For',
-    blurb: 'Presented and was not marked a no-show.',
-    announcer: 'You showed up and presented. Statistically, that is most of the battle. Reward: your guild bar now officially counts you.',
-    rarity: 'common', family: 'day_of', visible: true, availability: 'deferred',
-  },
 }
 
 /** Flat ordered list, used for rendering the catalog on /achievements. */
@@ -624,4 +608,11 @@ export const RARITY_LABELS: Record<Rarity, string> = {
   uncommon: 'Uncommon',
   rare: 'Rare',
   legendary: 'Legendary',
+}
+
+/** Public URL for a badge's printed-sticker artwork. Files live in
+ *  public/achievements/<key>.png — regenerate via
+ *  `node scripts/copy-achievement-stickers.mjs`. */
+export function achievementStickerUrl(key: AchievementKey): string {
+  return `/achievements/${key}.png`
 }

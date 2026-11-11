@@ -1,65 +1,38 @@
 import { redirect } from 'next/navigation'
+import Image from 'next/image'
 import {
-  ACHIEVEMENT_LIST,
-  FAMILY_LABELS,
+  ACHIEVEMENTS,
   RARITY_LABELS,
-  RARITY_ORDER,
-  type Achievement,
-  type AchievementFamily,
+  achievementStickerUrl,
+  type AchievementKey,
   type Rarity,
 } from '@/lib/leaderboard/achievements-catalog'
 import { getAchievementsPageData } from '@/lib/leaderboard/presenter-achievements'
-import { Lock } from 'lucide-react'
 
 // Presenter-only. Non-presenters bounce quietly to /. Keeps the game-mode
 // voice away from faculty/judges who aren't the stars of the show.
 
 export const dynamic = 'force-dynamic'
 
-// Families that keep showing locked / hint tiles so trainees know what's
-// still on the board. Everything else only renders earned cards.
-const HINT_FAMILIES: ReadonlySet<AchievementFamily> = new Set([
-  'green_labs',
-  'day_of',
-])
-
 export default async function AchievementsPage() {
   const data = await getAchievementsPageData()
   if (!data) redirect('/login?next=/achievements')
   if (!data.isPresenter) redirect('/')
 
-  // Group catalog entries by family in a stable order.
-  const families: AchievementFamily[] = [
-    'timing',
-    'content',
-    'boss',
-    'authors',
-    'affiliations',
-    'funding',
-    'attendance',
-    'green_labs',
-    'day_of',
-  ]
-  const byFamily = new Map<AchievementFamily, Achievement[]>()
-  for (const f of families) byFamily.set(f, [])
-  for (const a of ACHIEVEMENT_LIST) {
-    byFamily.get(a.family)!.push(a)
-  }
-  for (const [, list] of byFamily) {
-    list.sort((a, b) => {
-      const r = RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity]
-      if (r !== 0) return r
-      return a.label.localeCompare(b.label)
-    })
-  }
+  // Build the feed: newest unlock on top, oldest at the bottom. Keyed by
+  // the earliest timestamp per badge, which the loader already de-dupes.
+  const feed = Array.from(data.earned.entries())
+    .map(([key, earnedAt]) => ({ key, earnedAt, achievement: ACHIEVEMENTS[key] }))
+    .filter((r) => r.achievement) // defend against stale override rows
+    .sort((a, b) => (a.earnedAt < b.earnedAt ? 1 : a.earnedAt > b.earnedAt ? -1 : 0))
 
-  const earnedCount = data.earned.size
+  const earnedCount = feed.length
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Header */}
       <div className="relative overflow-hidden border-b border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950">
-        <div className="relative mx-auto max-w-6xl px-6 py-10">
+        <div className="relative mx-auto max-w-4xl px-6 py-10">
           <p className="text-xs uppercase tracking-[0.3em] text-indigo-300/70">
             Research Crawler Log — Research Day 2027
           </p>
@@ -83,38 +56,27 @@ export default async function AchievementsPage() {
         </div>
       </div>
 
-      {/* Family sections */}
-      <div className="mx-auto max-w-6xl space-y-10 px-6 py-10">
-        {families.map((family) => {
-          const list = byFamily.get(family) ?? []
-          if (list.length === 0) return null
-
-          const showHints = HINT_FAMILIES.has(family)
-          const visibleList = showHints
-            ? list
-            : list.filter((a) => data.earned.has(a.key))
-          if (visibleList.length === 0) return null
-
-          return (
-            <section key={family}>
-              <div className="mb-4 flex items-end justify-between gap-4">
-                <h2 className="text-xl font-semibold text-slate-100">
-                  {FAMILY_LABELS[family]}
-                </h2>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleList.map((a) => (
-                  <AchievementCard
-                    key={a.key}
-                    achievement={a}
-                    earned={data.earned.has(a.key)}
-                    unlockedAnywhere={data.unlockedAnywhere.has(a.key)}
-                  />
-                ))}
-              </div>
-            </section>
-          )
-        })}
+      {/* Feed */}
+      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+        {feed.length === 0 ? (
+          <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-8 text-center">
+            <p className="text-slate-300">No achievements unlocked yet.</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Submit an abstract to start your log.
+            </p>
+          </div>
+        ) : (
+          <ol className="space-y-4">
+            {feed.map(({ key, earnedAt, achievement }) => (
+              <FeedRow
+                key={key}
+                achievement={achievement}
+                earnedAt={earnedAt}
+                stickerUrl={achievementStickerUrl(key)}
+              />
+            ))}
+          </ol>
+        )}
       </div>
     </div>
   )
@@ -138,96 +100,65 @@ function StatPill({
   )
 }
 
-function AchievementCard({
+function FeedRow({
   achievement,
-  earned,
-  unlockedAnywhere,
+  earnedAt,
+  stickerUrl,
 }: {
-  achievement: Achievement
-  earned: boolean
-  unlockedAnywhere: boolean
+  achievement: (typeof ACHIEVEMENTS)[AchievementKey]
+  earnedAt: string
+  stickerUrl: string
 }) {
-  // Four render states:
-  //   earned           → full color, show emoji + announcer
-  //   visible, unearn  → muted, show emoji + blurb, no announcer
-  //   secret, unlocked → "???" tile, show rarity but hide name
-  //   secret, locked   → fully locked
-  const isSecret = !achievement.visible
-  const showIdentity = earned || achievement.visible || (isSecret && unlockedAnywhere)
-  const showName = earned || achievement.visible
-  const showAnnouncer = earned
-
   const rarityClass = RARITY_PILL[achievement.rarity]
-
-  if (!showIdentity) {
-    // Fully locked
-    return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-800 text-slate-500">
-            <Lock className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-mono text-slate-500">???</p>
-            <p className={`mt-1 inline-block rounded px-1.5 text-[10px] uppercase tracking-wider ${rarityClass}`}>
-              {RARITY_LABELS[achievement.rarity]}
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const date = new Date(earnedAt)
+  const dateLabel = Number.isNaN(date.getTime())
+    ? null
+    : date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'America/Denver',
+      })
 
   return (
-    <div
-      className={
-        earned
-          ? 'rounded-lg border border-indigo-500/40 bg-indigo-950/40 p-4 shadow-sm ring-1 ring-indigo-400/20'
-          : 'rounded-lg border border-slate-800 bg-slate-900/50 p-4'
-      }
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className={
-            earned
-              ? 'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-indigo-500/20 text-xl'
-              : 'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-slate-800 text-xl opacity-40'
-          }
-        >
-          {achievement.emoji}
+    <li className="overflow-hidden rounded-xl border border-slate-700/60 bg-gradient-to-br from-slate-900 to-slate-900/60 shadow-md">
+      <div className="flex items-center gap-4 p-4 sm:gap-6 sm:p-5">
+        <div className="flex-shrink-0 rounded-lg bg-slate-800/40 p-1">
+          <Image
+            src={stickerUrl}
+            alt={achievement.label}
+            width={128}
+            height={128}
+            className="h-24 w-24 object-contain sm:h-32 sm:w-32"
+            unoptimized
+          />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className={earned ? 'font-semibold text-slate-100' : 'font-medium text-slate-300'}>
-              {showName ? achievement.label : '???'}
-            </p>
+            <h3 className="text-lg font-semibold text-slate-100 sm:text-xl">
+              {achievement.label}
+            </h3>
             <span
-              className={`inline-block rounded px-1.5 text-[10px] uppercase tracking-wider ${rarityClass}`}
+              className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${rarityClass}`}
             >
               {RARITY_LABELS[achievement.rarity]}
             </span>
-            {achievement.availability === 'phase2' && !earned && (
-              <span className="inline-block rounded border border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] uppercase tracking-wider text-amber-200">
-                Coming soon
-              </span>
+            {dateLabel && (
+              <span className="text-xs text-slate-500">· {dateLabel}</span>
             )}
           </div>
-          <p
-            className={
-              earned ? 'mt-2 text-sm text-slate-300' : 'mt-2 text-sm text-slate-500'
-            }
-          >
-            {showAnnouncer ? achievement.announcer : achievement.blurb}
+          <p className="mt-2 text-sm leading-relaxed text-slate-300">
+            {achievement.announcer}
           </p>
         </div>
       </div>
-    </div>
+    </li>
   )
 }
 
 const RARITY_PILL: Record<Rarity, string> = {
-  common: 'bg-slate-700/50 text-slate-300',
-  uncommon: 'bg-emerald-500/15 text-emerald-300',
-  rare: 'bg-blue-500/15 text-blue-300',
-  legendary: 'bg-amber-500/15 text-amber-200',
+  common: 'bg-slate-700/60 text-slate-200',
+  uncommon: 'bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-400/30',
+  rare: 'bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30',
+  legendary: 'bg-amber-500/20 text-amber-200 ring-1 ring-amber-400/40',
 }

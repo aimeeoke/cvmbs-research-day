@@ -30,10 +30,10 @@ export type AchievementsPageData = {
   signedIn: boolean
   isPresenter: boolean
   displayName: string
-  /** Keys the user has earned (after overrides). */
-  earned: Set<AchievementKey>
-  /** Keys any abstract on the event has triggered — drives secret-tile reveal. */
-  unlockedAnywhere: Set<AchievementKey>
+  /** Keys the user has earned (after overrides), keyed by earliest trigger
+   *  timestamp in ISO form. Drives the reverse-chronological feed on
+   *  /achievements — newest unlock on top. */
+  earned: Map<AchievementKey, string>
   /** Display name of whoever currently holds First Blood on the event, if any. */
   firstBloodHolder: string | null
   /** Count of the user's own non-withdrawn abstracts on the event. */
@@ -68,8 +68,7 @@ export const getAchievementsPageData = cache(
         signedIn: true,
         isPresenter: false,
         displayName: pickName(profile, email),
-        earned: new Set(),
-        unlockedAnywhere: new Set(),
+        earned: new Map(),
         firstBloodHolder: null,
         abstractCount: 0,
       }
@@ -127,13 +126,11 @@ export const getAchievementsPageData = cache(
             )
             .in('id', userAbstractIds)
         : Promise.resolve({ data: [] as unknown[] }),
-      // Everyone's abstracts, trimmed: titles/abstracts for keyword matching
-      // and submitter_id for the First Blood presenter lookup.
+      // Everyone's abstracts — just the ids + timestamps, used only to
+      // compute the current First Blood holder.
       supabase
         .from('submissions')
-        .select(
-          'id, status, submitted_at, title, abstract, funding, affiliations'
-        )
+        .select('id, submitted_at')
         .eq('event_id', event.id)
         .neq('status', 'withdrawn'),
       // Early Bird: the EARLY_BIRD_COUNT earliest submitted_at values on
@@ -183,12 +180,7 @@ export const getAchievementsPageData = cache(
     }
     type EventAbstractRow = {
       id: string
-      status: string
       submitted_at: string | null
-      title: string | null
-      abstract: string | null
-      funding: string | null
-      affiliations: string[] | null
     }
 
     const userAbstracts = (userAbstractRows ?? []) as unknown as UserAbstractRow[]
@@ -219,7 +211,16 @@ export const getAchievementsPageData = cache(
     }
 
     // --- Compute per-abstract achievements ----------------------------------
-    const earned = new Set<AchievementKey>()
+    // earned keeps the EARLIEST trigger timestamp per key so the feed shows
+    // "when you first unlocked this" rather than resetting each time the
+    // badge fires on another abstract.
+    const earned = new Map<AchievementKey, string>()
+    const recordEarned = (key: AchievementKey, ts: string | null | undefined) => {
+      const stamp = ts && !Number.isNaN(new Date(ts).getTime()) ? ts : new Date().toISOString()
+      const existing = earned.get(key)
+      if (!existing || stamp < existing) earned.set(key, stamp)
+    }
+
     for (const a of uniqueUserAbstracts) {
       const authors = a.submission_authors ?? []
       const authorCount = authors.length
@@ -238,7 +239,7 @@ export const getAchievementsPageData = cache(
         affiliations: a.affiliations ?? [],
         funding: a.funding,
       })
-      for (const k of perAbstract) earned.add(k)
+      for (const k of perAbstract) recordEarned(k, a.submitted_at)
     }
 
     // Attendance: use whichever of the user's abstracts has them as presenter.
@@ -248,7 +249,7 @@ export const getAchievementsPageData = cache(
       const att = computeAttendanceAchievements({
         presenterPreviousRdCount: a.presenter_previous_rd_count,
       })
-      for (const k of att) earned.add(k)
+      for (const k of att) recordEarned(k, a.submitted_at)
       break
     }
 
@@ -266,49 +267,32 @@ export const getAchievementsPageData = cache(
       if (userKey && nameMatchKey(r.first_name, r.last_name) === userKey) return true
       return false
     })
-    if (hasCert) earned.add('green_ambassador')
+    // Cert source doesn't give us a reliable "earned at" for the badge, so
+    // we stamp it as now. If the user had the cert before any abstract, this
+    // is harmless; if after, it's close enough for feed ordering.
+    if (hasCert) recordEarned('green_ambassador', new Date().toISOString())
 
     // Certified Judgy — any active (not cancelled) registration on the event.
-    if ((judgeRows ?? []).length > 0) earned.add('certified_judgy')
+    if ((judgeRows ?? []).length > 0) {
+      recordEarned('certified_judgy', new Date().toISOString())
+    }
 
     // --- Apply overrides on the user's own abstracts -----------------------
     if (userAbstractIds.length > 0) {
       const { data: overrideRows } = await supabase
         .from('badge_overrides')
-        .select('submission_id, badge_key, action')
+        .select('submission_id, badge_key, action, created_at')
         .in('submission_id', userAbstractIds)
       for (const row of (overrideRows ?? []) as Array<{
         submission_id: string
         badge_key: string
         action: 'grant' | 'revoke'
+        created_at: string | null
       }>) {
         const key = row.badge_key as AchievementKey
-        if (row.action === 'grant') earned.add(key)
+        if (row.action === 'grant') recordEarned(key, row.created_at)
         else if (row.action === 'revoke') earned.delete(key)
       }
-    }
-
-    // --- Unlocked-anywhere compute for the catalog view --------------------
-    // Run compute across every non-withdrawn abstract on the event. We only
-    // care about which KEYS have fired at least once, so the author/affiliation
-    // meta badges are included too — First Blood/Early Bird excluded because
-    // they're singletons that would always show if any submission exists.
-    const unlockedAnywhere = new Set<AchievementKey>()
-    for (const a of allAbstracts) {
-      const perAbstract = computeAchievementsForAbstract({
-        id: a.id,
-        submittedAt: a.submitted_at,
-        submissionClosesAt: event.submission_closes_at ?? null,
-        isAmongFirstN: false,
-        isFirstBlood: false,
-        authorCount: 0,
-        mentorCount: 0,
-        titleHtml: a.title,
-        abstractHtml: a.abstract,
-        affiliations: a.affiliations ?? [],
-        funding: a.funding,
-      })
-      for (const k of perAbstract) unlockedAnywhere.add(k)
     }
 
     // First Blood holder name — only used for a tiny flavor line on the page.
@@ -332,7 +316,6 @@ export const getAchievementsPageData = cache(
       isPresenter: amPresenterOnAny,
       displayName: pickName(profile, email),
       earned,
-      unlockedAnywhere,
       firstBloodHolder,
       abstractCount: uniqueUserAbstracts.length,
     }

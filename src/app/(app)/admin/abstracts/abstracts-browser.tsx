@@ -2,10 +2,17 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Search } from 'lucide-react'
 import type { SubmissionStatus } from '@/lib/types/database'
 import { RichTextView } from '@/components/rich-text-view'
 import { richTextIsEmpty, richTextToPlainText } from '@/lib/rich-text'
+import {
+  buildCsv,
+  dateStamp,
+  downloadCsv,
+  formatEventTime,
+  type CsvColumn,
+} from '@/lib/csv-export'
 import { AdminDeleteButton } from './admin-delete-button'
 
 export type BrowserRow = {
@@ -18,6 +25,7 @@ export type BrowserRow = {
   withdrawal_requested_at: string | null
   department_id: string | null
   department_name: string | null
+  classification: string | null
   session_preference: string | null
   preferred_presentation_type: string | null
   research_type: string | null
@@ -205,8 +213,20 @@ export function AbstractsBrowser({
         </div>
       </div>
 
-      <div className="text-xs text-gray-500">
-        Showing {filtered.length} of {rows.length}
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs text-gray-500">
+          Showing {filtered.length} of {rows.length}
+        </div>
+        <button
+          type="button"
+          onClick={() => exportTrackingCsv(filtered)}
+          disabled={filtered.length === 0}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#1E4D2B] text-[#1E4D2B] text-xs font-semibold hover:bg-[#1E4D2B]/5 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Download the current filter + sort as a CSV"
+        >
+          <Download size={14} />
+          Export CSV
+        </button>
       </div>
 
       {filtered.length === 0 ? (
@@ -332,6 +352,34 @@ export function AbstractsBrowser({
       )}
     </div>
   )
+}
+
+// Tracking-CSV column spec. One row per abstract, no deep author list
+// and no abstract body — that stuff goes to the detail page. See
+// src/lib/csv-export.ts for the deferred "topic / research-area" export
+// note; that one needs a classifier + semantic search before it's useful.
+const TRACKING_CSV_COLUMNS: CsvColumn<BrowserRow>[] = [
+  { header: 'Presenter', value: (r) => r.presenter_name ?? '' },
+  { header: 'Presenter email', value: (r) => r.presenter_email ?? '' },
+  { header: 'Classification', value: (r) => r.classification ?? '' },
+  { header: 'Department', value: (r) => r.department_name ?? '' },
+  { header: 'Title', value: (r) => richTextToPlainText(r.title).trim() },
+  { header: 'Status', value: (r) => r.status.charAt(0).toUpperCase() + r.status.slice(1) },
+  { header: 'Mentor(s)', value: (r) => r.mentor_names.join('; ') },
+  { header: 'Research type', value: (r) => r.research_type ?? '' },
+  { header: 'Session preference', value: (r) => r.session_preference ?? '' },
+  { header: 'Preferred presentation type', value: (r) => r.preferred_presentation_type ?? '' },
+  { header: 'Submitter', value: (r) => r.submitter_name ?? '' },
+  { header: 'Submitter email', value: (r) => r.submitter_email ?? '' },
+  { header: 'Submitted at (MT)', value: (r) => formatEventTime(r.submitted_at) },
+  { header: 'Finalized at (MT)', value: (r) => formatEventTime(r.finalized_at) },
+  { header: 'Created at (MT)', value: (r) => formatEventTime(r.created_at) },
+  { header: 'Withdrawal requested at (MT)', value: (r) => formatEventTime(r.withdrawal_requested_at) },
+]
+
+function exportTrackingCsv(rows: readonly BrowserRow[]) {
+  const csv = buildCsv(rows, TRACKING_CSV_COLUMNS)
+  downloadCsv(`cvmbs-abstracts-tracking-${dateStamp()}.csv`, csv)
 }
 
 function SortableTh({

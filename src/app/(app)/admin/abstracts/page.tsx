@@ -38,7 +38,7 @@ export default async function AdminAbstractsPage({
         .select(
           `id, title, status, created_at, submitted_at, finalized_at,
            withdrawal_requested_at,
-           department_id,
+           department_id, classification,
            session_preference, preferred_presentation_type, research_type,
            submitter_id,
            submitter:profiles!submissions_submitter_id_fkey(email, full_name),
@@ -67,6 +67,7 @@ export default async function AdminAbstractsPage({
     finalized_at: string | null
     withdrawal_requested_at: string | null
     department_id: string | null
+    classification: string | null
     session_preference: string | null
     preferred_presentation_type: string | null
     research_type: string | null
@@ -107,6 +108,7 @@ export default async function AdminAbstractsPage({
       department_name: r.department_id
         ? depts.get(r.department_id) ?? null
         : null,
+      classification: r.classification,
       session_preference: r.session_preference,
       preferred_presentation_type: r.preferred_presentation_type,
       research_type: r.research_type,

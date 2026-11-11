@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { CheckCircle2, Loader2, Lock, Save, Send } from 'lucide-react'
 import type {
   PreferredPresentationType,
@@ -513,6 +514,7 @@ function validate(state: FormState): string | null {
 }
 
 export function SubmitForm(props: Props) {
+  const router = useRouter()
   const [state, setState] = useState<FormState>(() => deserialize(props.initial))
   const [status, setStatus] = useState<SubmissionStatus>(props.status)
   const [isPending, startTransition] = useTransition()
@@ -549,12 +551,21 @@ export function SubmitForm(props: Props) {
   const run = (
     fn: (id: string, input: SubmissionInput) => Promise<{ ok: true }>,
     nextStatus: SubmissionStatus,
-    successText: string
+    successText: string,
+    flash: 'saved' | 'submitted' | 'finalized' | null
   ) => {
     startTransition(async () => {
       try {
         await fn(props.submissionId, toSubmissionInput(state))
         setStatus(nextStatus)
+        // Submitters bounce back to the portal so the status pill is the
+        // feedback ("Draft saved" / "Submitted") — much higher confidence
+        // than a banner on a page that looks otherwise identical. Admins
+        // stay on their edit page so they can keep working.
+        if (!props.adminView && flash) {
+          router.push(`/abstracts?flash=${flash}&id=${props.submissionId}`)
+          return
+        }
         setBanner({ tone: 'success', text: successText })
       } catch (e) {
         setBanner({
@@ -567,7 +578,7 @@ export function SubmitForm(props: Props) {
 
   const onSaveDraft = () => {
     setBanner(null)
-    run(saveDraft, status === 'draft' ? 'draft' : status, 'Draft saved.')
+    run(saveDraft, status === 'draft' ? 'draft' : status, 'Draft saved.', 'saved')
   }
 
   const onSubmit = () => {
@@ -577,7 +588,12 @@ export function SubmitForm(props: Props) {
       setBanner({ tone: 'error', text: err })
       return
     }
-    run(submitDraft, 'submitted', 'Submitted. You can keep editing until the deadline.')
+    run(
+      submitDraft,
+      'submitted',
+      'Submitted. You can keep editing until the deadline.',
+      'submitted'
+    )
   }
 
   const onFinalize = () => {
@@ -593,7 +609,7 @@ export function SubmitForm(props: Props) {
       )
     )
       return
-    run(finalizeSubmission, 'finalized', 'Submission finalized and locked.')
+    run(finalizeSubmission, 'finalized', 'Submission finalized and locked.', null)
   }
 
   const bylineNames = computeBylineNames(state)

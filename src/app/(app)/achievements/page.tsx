@@ -148,6 +148,9 @@ function FeedRow({
             )}
           </div>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
+            <span className="mr-1 font-bold tracking-wider text-amber-300">
+              NEW ACHIEVEMENT:
+            </span>
             {achievement.announcer}
           </p>
         </div>

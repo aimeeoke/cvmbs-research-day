@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { FileText } from 'lucide-react'
+import { CheckCircle2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import type { SubmissionStatus } from '@/lib/types/database'
@@ -9,6 +9,8 @@ import { NewSubmissionButton } from './new-submission-button'
 import { RowActions } from './row-actions'
 
 export const metadata = { title: 'Abstract Portal · CVMBS Research Day' }
+
+type PageSearchParams = Promise<{ flash?: string; id?: string }>
 
 type AuthorRow = {
   display_name: string | null
@@ -31,7 +33,13 @@ type SubmissionRow = {
   submission_authors: AuthorRow[]
 }
 
-export default async function AbstractsPage() {
+export default async function AbstractsPage({
+  searchParams,
+}: {
+  searchParams: PageSearchParams
+}) {
+  const params = await searchParams
+  const flash = flashMessage(params.flash)
   const user = await getCurrentUser()
   if (!user) redirect('/login?redirect=/abstracts')
 
@@ -74,6 +82,13 @@ export default async function AbstractsPage() {
         </div>
         <NewSubmissionButton />
       </div>
+
+      {flash && (
+        <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900 flex items-start gap-2">
+          <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-700 mt-0.5" />
+          <p>{flash}</p>
+        </div>
+      )}
 
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
         <p className="font-semibold">Before you create a new submission:</p>
@@ -204,6 +219,17 @@ function summarize(s: SubmissionRow, userId: string, userEmail: string | null) {
     editable: s.status === 'draft' || s.status === 'submitted',
     isSubmitter: s.submitter_id === userId,
     withdrawalRequestedAt: s.withdrawal_requested_at,
+  }
+}
+
+function flashMessage(flash: string | undefined): string | null {
+  switch (flash) {
+    case 'saved':
+      return 'Draft saved. Your abstract is safe — come back and finish anytime.'
+    case 'submitted':
+      return 'Submitted! You can keep editing your abstract until the deadline.'
+    default:
+      return null
   }
 }
 

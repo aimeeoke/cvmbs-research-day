@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Trash2, AlertTriangle, Loader2, X } from 'lucide-react'
 import type { SubmissionStatus } from '@/lib/types/database'
 import { deleteOwnSubmission, requestWithdrawal } from './actions'
+import { isNextRedirectError } from '@/lib/next-redirect'
 
 export function RowActions({
   submissionId,
@@ -88,6 +89,7 @@ function DeleteModal({
         await deleteOwnSubmission(submissionId)
         onClose()
       } catch (e) {
+        if (isNextRedirectError(e)) throw e
         setError(e instanceof Error ? e.message : 'Could not delete.')
       }
     })
@@ -147,6 +149,7 @@ function WithdrawModal({
         await requestWithdrawal(submissionId, reason)
         setSuccess(true)
       } catch (e) {
+        if (isNextRedirectError(e)) throw e
         setError(e instanceof Error ? e.message : 'Could not submit request.')
       }
     })

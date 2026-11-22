@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Plus, X, Loader2, User, Users, GraduationCap } from 'lucide-react'
 import type { SubmitterRole } from '../submit/actions'
 import { startNewSubmission } from './actions'
+import { isNextRedirectError } from '@/lib/next-redirect'
 
 type Option = {
   value: SubmitterRole
@@ -57,6 +58,11 @@ export function NewSubmissionButton() {
         await startNewSubmission(selected)
         // startNewSubmission redirects, so we never reach here on success
       } catch (e) {
+        // Server-side redirect() throws a sentinel error that MUST propagate
+        // so Next can carry out the navigation; without the re-throw the
+        // catch below would flash "NEXT_REDIRECT" as a user-facing error
+        // for a moment before the browser actually moves.
+        if (isNextRedirectError(e)) throw e
         setError(e instanceof Error ? e.message : 'Could not start a new submission.')
       }
     })

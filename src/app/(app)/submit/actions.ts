@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { sanitizeRichTextHtml } from '@/lib/rich-text'
+import { richTextIsEmpty, sanitizeRichTextHtml } from '@/lib/rich-text'
 import type {
   PreferredPresentationType,
   SessionPreference,
@@ -174,16 +174,67 @@ async function persistSubmission(
     throw new Error('This submission is locked and can no longer be edited.')
   }
 
-  // Enforce "one presentation per presenter" at submit/finalize time.
+  // Server-side mirror of the client validate() in submit-form.tsx. The
+  // client already checks these, but a stale form, back/forward navigation,
+  // or anyone poking the server action directly can slip blanks through
+  // without this. Pre-Nov 2026 the server only enforced presenter-identity
+  // + one-per-presenter, which is how we ended up with submitted rows
+  // missing required fields.
   if (nextStatus === 'submitted' || nextStatus === 'finalized') {
+    if (richTextIsEmpty(input.title)) {
+      throw new Error('Add a title before submitting.')
+    }
+    if (richTextIsEmpty(input.abstract)) {
+      throw new Error('Add the abstract body before submitting.')
+    }
+    if (!input.department_id && !input.program?.trim()) {
+      throw new Error(
+        'Pick a Department or enter a Program in the Presenter section.'
+      )
+    }
+
     const presenter = input.authors.find((a) => a.is_presenter)
     if (!presenter) {
       throw new Error('Mark one author as the Presenter before submitting.')
+    }
+    if (!presenter.display_name?.trim()) {
+      throw new Error('Presenter name is required.')
     }
     const presenterEmail = presenter.email?.trim().toLowerCase()
     if (!presenterEmail) {
       throw new Error(
         'The Presenter must have an email address before you can submit.'
+      )
+    }
+
+    const hasMentor = input.authors.some(
+      (a) => a.is_mentor && a.display_name?.trim()
+    )
+    if (!hasMentor) {
+      throw new Error(
+        'Add at least one mentor (Faculty Mentor 1, Faculty Mentor 2, or Other Mentor).'
+      )
+    }
+
+    if (!input.research_type) {
+      throw new Error(
+        'Pick a research type (Foundational / Translational / Veterinary Clinical / Social Sciences-Pedagogy).'
+      )
+    }
+    if (!input.research_stage) {
+      throw new Error('Pick a research stage (Early or Advanced).')
+    }
+    if (!input.preferred_presentation_type) {
+      throw new Error(
+        'Pick a preferred presentation type (Oral only / Prefer oral / Poster only / No preference).'
+      )
+    }
+    if (
+      input.presenter_previous_rd_count === null ||
+      input.presenter_previous_rd_count === undefined
+    ) {
+      throw new Error(
+        'Pick how many previous CVMBS Research Days the presenter has attended.'
       )
     }
 

@@ -86,7 +86,13 @@ export default async function AdminAbstractsPage({
     previous_format: string | null
     presenter_previous_rd_count: number | null
     submitter_id: string
-    submitter: { email: string | null; full_name: string | null }[] | null
+    // PostgREST returns a single object for a scalar FK join, but the
+    // Supabase JS types widen to array in some paths. Accept both and
+    // narrow with Array.isArray() below.
+    submitter:
+      | { email: string | null; full_name: string | null }
+      | { email: string | null; full_name: string | null }[]
+      | null
     submission_authors:
       | {
           display_name: string | null
@@ -127,7 +133,9 @@ export default async function AdminAbstractsPage({
     const mentorCvmbs2 = mentors.find((m) => m.mentor_slot === 'cvmbs_2') ?? null
     const mentorExternal =
       mentors.find((m) => m.mentor_slot === 'external') ?? null
-    const submitter = r.submitter?.[0] ?? null
+    const submitter = Array.isArray(r.submitter)
+      ? r.submitter[0] ?? null
+      : r.submitter ?? null
     return {
       id: r.id,
       title: r.title ?? '',

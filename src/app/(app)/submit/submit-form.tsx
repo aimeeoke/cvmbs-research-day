@@ -38,6 +38,7 @@ import {
   SectionHeader as AuthorCertsHeader,
   type AuthorRow,
 } from './author-certs-section'
+import { isNextRedirectError } from '@/lib/next-redirect'
 
 type Department = { id: string; name: string; short_name?: string | null }
 
@@ -49,7 +50,7 @@ type Props = {
   facultyOptions: FacultyOption[]
   editingLocked: boolean
   finalizeDeadline: string | null
-  /** Submission close deadline (Nov 16). Gates whether the lock-related
+  /** Submission close deadline. Gates whether the lock-related
    *  subtitle copy renders — kept hidden until we're past this date so
    *  submitters focused on drafting don't see premature "submissions lock
    *  automatically" messaging. */
@@ -494,17 +495,23 @@ function validate(state: FormState): string | null {
     return 'Presenter name is required.'
   if (!state.presenter.email.trim())
     return 'Presenter email is required.'
-  if (!state.mentor_cvmbs_1.name.trim())
-    return 'Faculty Mentor 1 is required — pick a CVMBS faculty member or use "not listed" to type a name.'
-  if (state.presenter_previous_rd_count === null)
-    return 'Pick how many previous CVMBS Research Days the presenter has attended (bottom of Preferences).'
-
-  const bylineLower = computeBylineNames(state).map((n) => n.toLowerCase())
   const mentorNames = [
     state.mentor_cvmbs_1.name.trim(),
     state.mentor_cvmbs_2.name.trim(),
     state.mentor_external.name.trim(),
   ].filter(Boolean)
+  if (mentorNames.length === 0)
+    return 'Add at least one mentor (Faculty Mentor 1, Faculty Mentor 2, or Other Mentor).'
+  if (!state.research_type)
+    return 'Pick a research type (Foundational / Translational / Veterinary Clinical / Social Sciences-Pedagogy).'
+  if (!state.research_stage)
+    return 'Pick a research stage (Early or Advanced).'
+  if (!state.preferred_presentation_type)
+    return 'Pick a preferred presentation type (Oral only / Prefer oral / Poster only / No preference).'
+  if (state.presenter_previous_rd_count === null)
+    return 'Pick how many previous CVMBS Research Days the presenter has attended (bottom of Preferences).'
+
+  const bylineLower = computeBylineNames(state).map((n) => n.toLowerCase())
   for (const mn of mentorNames) {
     if (!bylineLower.includes(mn.toLowerCase())) {
       return `Mentor "${mn}" isn't in the Authors byline. Add them to the Authors list or clear the Mentors slot.`
@@ -568,6 +575,11 @@ export function SubmitForm(props: Props) {
         }
         setBanner({ tone: 'success', text: successText })
       } catch (e) {
+        // If the session expired mid-action, requireUser() inside the server
+        // action calls redirect('/login') — let that propagate so Next can
+        // actually navigate. Otherwise the error banner would briefly show
+        // "NEXT_REDIRECT" before the redirect completes.
+        if (isNextRedirectError(e)) throw e
         setBanner({
           tone: 'error',
           text: e instanceof Error ? e.message : 'Something went wrong. Try again?',
@@ -1105,7 +1117,7 @@ function StatusHeader({
     : null
 
   // Suppress lock-related subtitle copy until we're past the submission
-  // close (Nov 16). Pre-close, submitters are focused on drafting and
+  // close. Pre-close, submitters are focused on drafting and
   // mentioning auto-lock creates unnecessary anxiety. Null means we don't
   // know the close date → treat as pre-close and hide.
   const pastSubmissionClose = submissionClosesAt

@@ -18,6 +18,8 @@ import { AdminDeleteButton } from './admin-delete-button'
 export type BrowserRow = {
   id: string
   title: string
+  /** Rich-text HTML; pass through richTextToPlainText() for CSV/search. */
+  abstract: string
   status: SubmissionStatus
   created_at: string
   submitted_at: string | null
@@ -25,15 +27,33 @@ export type BrowserRow = {
   withdrawal_requested_at: string | null
   department_id: string | null
   department_name: string | null
+  /** Free-text program for presenters outside a CVMBS department. */
+  program: string | null
   classification: string | null
+  /** Centers / institutes / programs / training grants — from the picker. */
+  affiliations: string[]
   session_preference: string | null
   preferred_presentation_type: string | null
   research_type: string | null
+  research_stage: string | null
+  funding: string | null
+  previously_presented: boolean | null
+  previous_format: string | null
+  /** 0, 1, 2, 3, 4 (="4 or more"); NULL on legacy drafts. */
+  presenter_previous_rd_count: number | null
   submitter_name: string
   submitter_email: string | null
   presenter_name: string | null
   presenter_email: string | null
   mentor_names: string[]
+  mentor_cvmbs_1_name: string | null
+  mentor_cvmbs_1_dept: string | null
+  mentor_cvmbs_2_name: string | null
+  mentor_cvmbs_2_dept: string | null
+  mentor_external_name: string | null
+  mentor_external_affiliation: string | null
+  coauthor_count: number
+  coauthor_names: string[]
   byline: string
 }
 
@@ -217,7 +237,7 @@ export function AbstractsBrowser({
         <div className="text-xs text-gray-500">
           Showing {filtered.length} of {rows.length}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {filtered.length !== rows.length && (
             <button
               type="button"
@@ -239,6 +259,16 @@ export function AbstractsBrowser({
           >
             <Download size={14} />
             Export all ({rows.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => exportCommitteeCsv(filtered)}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-700 bg-amber-50 text-amber-900 text-xs font-semibold hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Wide CSV with abstract body, full author list, mentor depts, previous-RD count, and derived science-category / first-time-oral flags. Filter to Submitted + Finalized first."
+          >
+            <Download size={14} />
+            Committee review ({filtered.length})
           </button>
         </div>
       </div>
@@ -385,9 +415,8 @@ function splitPersonName(name: string | null): { first: string; last: string } {
 }
 
 // Tracking-CSV column spec. One row per abstract, no deep author list
-// and no abstract body — that stuff goes to the detail page. See
-// src/lib/csv-export.ts for the deferred "topic / research-area" export
-// note; that one needs a classifier + semantic search before it's useful.
+// and no abstract body — that stuff lives in the Committee-review export
+// below.
 const TRACKING_CSV_COLUMNS: CsvColumn<BrowserRow>[] = [
   { header: 'Presenter first name', value: (r) => splitPersonName(r.presenter_name).first },
   { header: 'Presenter last name', value: (r) => splitPersonName(r.presenter_name).last },
@@ -413,6 +442,115 @@ function exportTrackingCsv(rows: readonly BrowserRow[], scope: 'view' | 'all') {
   const csv = buildCsv(rows, TRACKING_CSV_COLUMNS)
   const suffix = scope === 'view' ? 'filtered' : 'all'
   downloadCsv(`cvmbs-abstracts-${suffix}-${dateStamp()}.csv`, csv)
+}
+
+// Science-category derivation — maps the four research-type picks to the
+// three buckets the oral-assignment rules care about (basic vs clinical vs
+// translational). Social Sciences/Pedagogy is rare + doesn't fit the
+// 50/25/25 target, so it lands in "Other" and the committee treats it
+// separately.
+function scienceCategory(researchType: string | null): string {
+  switch (researchType) {
+    case 'Foundational Research':
+      return 'Basic / Foundational'
+    case 'Translational Research':
+      return 'Translational'
+    case 'Veterinary Clinical Research':
+      return 'Clinical'
+    case 'Social Sciences/Pedagogy Research':
+      return 'Other'
+    default:
+      return ''
+  }
+}
+
+// Hard constraint — undergrads are poster-only per committee rule. Keep
+// the derivation narrow (exact classification match) so a committee
+// reviewer isn't surprised by edge cases.
+function isUndergrad(classification: string | null): boolean {
+  return classification === 'Undergraduate Student'
+}
+
+// "First-time oral" = never previously orally presented at RD. A poster-only
+// history still counts as a first-time oral presenter. NULL (hasn't answered)
+// is left blank so the committee can see the gap.
+function firstTimeOralFlag(r: BrowserRow): string {
+  if (r.previously_presented === null || r.previously_presented === undefined) return ''
+  if (!r.previously_presented) return 'Y'
+  return r.previous_format === 'Oral' ? 'N' : 'Y'
+}
+
+function prevRdCountLabel(n: number | null): string {
+  if (n === null || n === undefined) return ''
+  return n >= 4 ? '4+' : String(n)
+}
+
+function yesNo(v: boolean | null): string {
+  if (v === null || v === undefined) return ''
+  return v ? 'Y' : 'N'
+}
+
+// Committee-review CSV. One row per abstract, but WIDE — every field
+// that feeds the oral-vs-poster decision, plus the full abstract body as
+// plain text, plus derived flags (science bucket, undergrad, first-time
+// oral). Intended workflow: filter to Submitted + Finalized first, then
+// Export. See tasks/oral-assignment-rules.md for what the committee is
+// optimizing when they read this.
+const COMMITTEE_CSV_COLUMNS: CsvColumn<BrowserRow>[] = [
+  { header: 'Abstract ID', value: (r) => r.id.slice(0, 8) },
+  { header: 'Status', value: (r) => r.status.charAt(0).toUpperCase() + r.status.slice(1) },
+  { header: 'Finalized at (MT)', value: (r) => formatEventTime(r.finalized_at) },
+  { header: 'Submitted at (MT)', value: (r) => formatEventTime(r.submitted_at) },
+
+  // Presenter identity
+  { header: 'Presenter first name', value: (r) => splitPersonName(r.presenter_name).first },
+  { header: 'Presenter last name', value: (r) => splitPersonName(r.presenter_name).last },
+  { header: 'Presenter email', value: (r) => r.presenter_email ?? '' },
+  { header: 'Classification', value: (r) => r.classification ?? '' },
+  { header: 'Undergrad (poster-only)', value: (r) => (isUndergrad(r.classification) ? 'Y' : '') },
+  { header: 'Presenter department', value: (r) => r.department_name ?? '' },
+  { header: 'Presenter program (if not CVMBS dept)', value: (r) => r.program ?? '' },
+  { header: 'Affiliations (centers/institutes/programs)', value: (r) => r.affiliations.join('; ') },
+
+  // Research classification — raw + derived
+  { header: 'Research type', value: (r) => r.research_type ?? '' },
+  { header: 'Science category (derived)', value: (r) => scienceCategory(r.research_type) },
+  { header: 'Research stage', value: (r) => r.research_stage ?? '' },
+
+  // Format + session
+  { header: 'Preferred presentation type', value: (r) => r.preferred_presentation_type ?? '' },
+  { header: 'Session preference', value: (r) => r.session_preference ?? '' },
+
+  // Priors — core input for "new oral presenter" preference
+  { header: 'Previously presented at RD?', value: (r) => yesNo(r.previously_presented) },
+  { header: 'Previous format', value: (r) => r.previous_format ?? '' },
+  { header: 'Previous RD count', value: (r) => prevRdCountLabel(r.presenter_previous_rd_count) },
+  { header: 'First-time oral? (derived)', value: firstTimeOralFlag },
+
+  // Content
+  { header: 'Title', value: (r) => richTextToPlainText(r.title).trim() },
+  { header: 'Abstract', value: (r) => richTextToPlainText(r.abstract).trim() },
+  { header: 'Funding', value: (r) => r.funding ?? '' },
+
+  // Authors
+  { header: 'Faculty Mentor 1 name', value: (r) => r.mentor_cvmbs_1_name ?? '' },
+  { header: 'Faculty Mentor 1 dept', value: (r) => r.mentor_cvmbs_1_dept ?? '' },
+  { header: 'Faculty Mentor 2 name', value: (r) => r.mentor_cvmbs_2_name ?? '' },
+  { header: 'Faculty Mentor 2 dept', value: (r) => r.mentor_cvmbs_2_dept ?? '' },
+  { header: 'Other Mentor name', value: (r) => r.mentor_external_name ?? '' },
+  { header: 'Other Mentor affiliation', value: (r) => r.mentor_external_affiliation ?? '' },
+  { header: 'Coauthor count', value: (r) => r.coauthor_count },
+  { header: 'Coauthors', value: (r) => r.coauthor_names.join('; ') },
+  { header: 'Full byline', value: (r) => r.byline },
+
+  // Submitter (only interesting when ≠ presenter — proxy drafters)
+  { header: 'Submitter name', value: (r) => (r.submitter_email !== r.presenter_email ? r.submitter_name : '') },
+  { header: 'Submitter email', value: (r) => (r.submitter_email !== r.presenter_email ? r.submitter_email ?? '' : '') },
+]
+
+function exportCommitteeCsv(rows: readonly BrowserRow[]) {
+  const csv = buildCsv(rows, COMMITTEE_CSV_COLUMNS)
+  downloadCsv(`cvmbs-abstracts-committee-review-${dateStamp()}.csv`, csv)
 }
 
 function SortableTh({
